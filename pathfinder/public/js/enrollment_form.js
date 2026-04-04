@@ -19,8 +19,8 @@
   function injectPathfinderButton(frm) {
     if (document.getElementById("pathfinder-enrollment-btn")) return
 
-    // Add button to form header, left of Actions dropdown
-    frm.page.add_action_item("Pathfinder", function () {
+    // Add standalone button to form header, left of Actions dropdown
+    frm.page.add_button(__("Pathfinder"), function () {
       if (typeof window.openPathfinderPopup === "function") {
         window.openPathfinderPopup(frm.doctype, {
           onPathSelected: function (path) {
@@ -51,10 +51,7 @@
       } else {
         frappe.msgprint("Pathfinder popup is not available. Run `bench build --app pathfinder`.")
       }
-    }, true)
-
-    // Mark as added
-    $("#pathfinder-enrollment-btn").data("injected", true)
+    }, "fa fa-compass")
   }
 
   function populateInstructionsTab(frm) {

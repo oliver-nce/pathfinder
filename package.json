@@ -1,0 +1,8 @@
+{
+  "name": "pathfinder",
+  "version": "0.0.1",
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build"
+  },
+  "private": true
+}
