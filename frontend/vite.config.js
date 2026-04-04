@@ -10,7 +10,7 @@ export default defineConfig({
       name: "Pathfinder",
       formats: ["es"],
     },
-    outDir: "../public/js",
+    outDir: "../pathfinder/public/js",
     emptyOutDir: false,
   },
   resolve: {
