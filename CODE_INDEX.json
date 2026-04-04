@@ -1,0 +1,197 @@
+{
+  "_meta": {
+    "description": "Machine-readable index of every module in the Pathfinder Frappe app. Read this file FIRST before exploring the codebase — it tells you exactly where to look for any given concern.",
+    "generated": "2026-04-04",
+    "usage": "Find the module whose 'purpose' matches your task, then read only that file and its 'depends_on' entries."
+  },
+
+  "architecture": {
+    "overview": "Pathfinder is a standalone Frappe v15 app providing a visual field-path navigator. Users browse DocType link chains (e.g. Sales Order → Customer → Territory → name) and create *virtual fields* — dot-notation paths that resolve values across linked documents at runtime. Supports dual output: Frappe paths for virtual fields and Vue form display, Jinja tags for email/SMS/text templates. Consuming apps (NCE Events, NCE Studio) import components or call APIs.",
+    "data_flow": "Vue SPA (PathFinderCore → PathColumn) → frappe.call(pathfinder.api.get_doctype_fields) → Frappe ORM → MariaDB | User selects path → PathFinderPanel emits path-selected or jinja-tag-selected event → consuming app handles output | Virtual field saved as Pathfinder Virtual Field DocType → on document load, inject_virtual_fields hook resolves values and attaches to doc._virtual_fields | resolve_virtual_fields API returns both resolved value and Jinja tag for any path",
+    "key_patterns": [
+      "Many-to-One traversal only (Phase 1) — follows Link fields in drill-down direction",
+      "Dual output: every resolver returns both Frappe dot-notation path AND Jinja template tag",
+      "Table fields and Dynamic Link fields excluded from Phase 1 with PHASE 2 placeholder comments",
+      "inject_virtual_fields doc_events hook is zero-cost — caches doctypes-with-vfields in Redis before any DB query",
+      "PathFinderPanel is refactored to be event-driven — no canvasStore or studioStore coupling",
+      "useFieldMeta composable uses module-level Map cache + in-flight request deduplication",
+      "Pathfinder Virtual Field DocType auto-resolves terminal_fieldtype on save via controller validate()"
+    ]
+  },
+
+  "backend": {
+    "hooks.py": {
+      "purpose": "App config: metadata, frontend JS bundle include on all Desk pages, doc_events onload hook for virtual field injection",
+      "exports": ["app_name", "app_include_js", "doc_events"],
+      "depends_on": ["api/pathfinder_api.py"],
+      "sections": ["App Metadata", "Site-wide JS Include", "Document Event Hook"]
+    },
+    "install.py": {
+      "purpose": "Post-install hook — placeholder for default role/permission setup",
+      "exports": ["after_install"],
+      "depends_on": [],
+      "sections": ["Role Setup"]
+    },
+    "api/pathfinder_api.py": {
+      "purpose": "All whitelisted backend endpoints: field metadata browsing, virtual field CRUD, path resolution with dual output (Frappe path + Jinja tag), and doc_events onload injection handler",
+      "exports": [
+        "get_doctype_fields",
+        "get_whitelisted_methods",
+        "get_virtual_fields",
+        "resolve_virtual_fields",
+        "resolve_single_path",
+        "build_jinja_tag",
+        "_resolve_path",
+        "_build_jinja_tag",
+        "inject_virtual_fields"
+      ],
+      "depends_on": ["pathfinder/doctype/pathfinder_virtual_field/"],
+      "sections": [
+        "Field metadata browser",
+        "Whitelisted method discovery",
+        "Virtual field listing",
+        "Bulk virtual field resolution",
+        "Single path resolution (dual output)",
+        "Jinja tag generation",
+        "Core path resolver (Many-to-One)",
+        "Core Jinja tag builder",
+        "Doc events onload injection (zero-cost cache)"
+      ]
+    },
+    "api/__init__.py": {
+      "purpose": "Re-exports all whitelisted API endpoints for clean imports",
+      "exports": [
+        "get_doctype_fields",
+        "get_whitelisted_methods",
+        "get_virtual_fields",
+        "resolve_virtual_fields",
+        "resolve_single_path",
+        "build_jinja_tag",
+        "inject_virtual_fields"
+      ],
+      "depends_on": ["api/pathfinder_api.py"],
+      "sections": ["Re-exports"]
+    },
+    "pathfinder/utils/path_utils.py": {
+      "purpose": "Portable path utilities with zero Frappe dependencies — path validation, binding, display formatting, ID generation",
+      "exports": [
+        "validate_field_path",
+        "bind_path_finder_to_field",
+        "create_field_from_path",
+        "get_terminal_field_name",
+        "get_parent_path",
+        "is_direct_field",
+        "format_path_for_display"
+      ],
+      "depends_on": [],
+      "sections": ["Path validation", "Field binding", "Field creation", "Path extraction", "Display formatting"]
+    }
+  },
+
+  "doctypes": {
+    "pathfinder/doctype/pathfinder_virtual_field/": {
+      "purpose": "Stores a virtual field definition: source DocType, dot-notation path, display settings. On validate, auto-resolves terminal fieldtype and options by walking the path through DocType metadata. Naming: source_doctype-field_label slug.",
+      "key_fields": [
+        "source_doctype",
+        "field_label",
+        "field_path",
+        "terminal_fieldtype",
+        "terminal_options",
+        "show_in_form",
+        "show_in_list",
+        "column_order",
+        "enabled",
+        "description"
+      ],
+      "client_js": [],
+      "depends_on": []
+    }
+  },
+
+  "frontend": {
+    "frontend/src/main.js": {
+      "purpose": "Vue app entry point — re-exports all Pathfinder components for consuming apps",
+      "exports": ["PathFinderCore", "PathColumn", "PathFinderDialog", "PathFinderPanel"],
+      "depends_on": ["frontend/src/components/"]
+    },
+    "frontend/src/components/PathFinderCore.vue": {
+      "purpose": "Multi-column field navigator — maintains column state stack, builds dot-notation path from selections, handles drill-down for Link/Table/Dynamic Link fields, circular reference detection via visited doctypes set",
+      "exports": ["currentPath (ref)", "columns (ref)", "truncateToColumn", "handleFieldSelect"],
+      "props": ["rootDoctype", "mode (single|multi)"],
+      "emits": ["path-selected", "update:modelValue"],
+      "depends_on": ["frontend/src/components/PathColumn.vue"],
+      "sections": ["Breadcrumb trail", "Current path display with confirm button", "Scrollable columns container", "Drillable field types set", "Circular reference detection"]
+    },
+    "frontend/src/components/PathColumn.vue": {
+      "purpose": "Single column of fields with drill-down — loads DocType metadata via useFieldMeta composable, color-codes field types (blue=Link, orange=Table, purple=Dynamic Link), circular reference warnings",
+      "exports": [],
+      "props": ["doctype", "selectedField", "multiSelect", "selectedFields", "visitedDoctypes"],
+      "emits": ["select", "toggle"],
+      "depends_on": ["frontend/src/composables/useFieldMeta.ts"],
+      "sections": ["Column header", "Loading/error states", "Fields list with color-coded dots and row hover", "Drillable field detection", "Field sorting (drillable first, then alphabetical)"]
+    },
+    "frontend/src/components/PathFinderDialog.vue": {
+      "purpose": "Tabbed dialog wrapping PathFinderCore (field path tab) and whitelisted methods (button action tab) — repointed to pathfinder.api.get_whitelisted_methods",
+      "exports": [],
+      "props": ["doctype", "modelValue"],
+      "emits": ["update:modelValue"],
+      "depends_on": [
+        "frontend/src/components/PathFinderCore.vue",
+        "pathfinder.api.get_whitelisted_methods"
+      ],
+      "sections": ["Tab bar (Field Path / Button Action)", "PathFinderCore integration", "Whitelisted methods list", "Pending value footer with Insert button"]
+    },
+    "frontend/src/components/PathFinderPanel.vue": {
+      "purpose": "Refactored panel with DocType selector + navigation — event-driven API with no NCE Studio coupling. Emits path-selected AND jinja-tag-selected for consuming apps to choose output format",
+      "exports": [],
+      "props": ["rootDoctype", "mode (select|manage)"],
+      "emits": ["path-selected", "jinja-tag-selected", "virtual-field-created"],
+      "depends_on": ["frontend/src/components/PathFinderCore.vue"],
+      "sections": ["DocType input selector", "PathFinderCore integration", "Footer with dual output buttons (Use Frappe Path / Use Jinja Tag)"]
+    },
+    "frontend/src/components/PathFinderPanelDesigner.vue": {
+      "purpose": "Thin wrapper around PathFinderCore — used in designer contexts where only path selection is needed",
+      "exports": [],
+      "props": ["doctype"],
+      "emits": ["path-selected"],
+      "depends_on": ["frontend/src/components/PathFinderCore.vue"],
+      "sections": ["PathFinderCore passthrough"]
+    },
+    "frontend/src/components/index.ts": {
+      "purpose": "Barrel export for all Pathfinder Vue components",
+      "exports": ["PathColumn", "PathFinderCore", "PathFinderDialog", "PathFinderPanel", "PathFinderPanelDesigner"],
+      "depends_on": [],
+      "sections": ["Re-exports"]
+    },
+    "frontend/src/composables/useFieldMeta.ts": {
+      "purpose": "Cached DocType field metadata fetcher — module-level Map cache + in-flight request deduplication. Repointed from studio.api to pathfinder.api.get_doctype_fields",
+      "exports": ["useFieldMeta", "FieldInfo (type)", "fetchDoctypeFields", "findField", "resolveNestedFieldMeta", "invalidateCache"],
+      "depends_on": ["pathfinder.api.get_doctype_fields"],
+      "sections": ["Module-level cache", "In-flight request tracking", "fetchDoctypeFields", "findField", "resolveNestedFieldMeta", "invalidateCache"]
+    },
+    "frontend/src/types/index.ts": {
+      "purpose": "TypeScript interfaces — stripped to essentials (no NCE Studio types like FormDefinition, EditLock, ThemeSettings)",
+      "exports": ["FieldMeta", "PathSegment", "FieldPath"],
+      "depends_on": [],
+      "sections": ["FieldMeta (field metadata)", "PathSegment (single hop)", "FieldPath (full path with segments + terminal field)"]
+    },
+    "frontend/src/tests/pathUtils.test.js": {
+      "purpose": "Vitest tests for path utilities — validation, binding, field creation, display formatting",
+      "exports": [],
+      "depends_on": ["pathfinder/utils/path_utils.py"],
+      "sections": ["validateFieldPath tests", "bindPathFinderToField tests", "createFieldFromPath tests", "Path utility tests"]
+    },
+    "frontend/vite.config.js": {
+      "purpose": "Vite build config — builds frontend into pathfinder/public/js/pathfinder.bundle.js",
+      "exports": [],
+      "depends_on": [],
+      "sections": ["Vue plugin", "Lib build config", "Path alias resolution"]
+    },
+    "frontend/package.json": {
+      "purpose": "NPM dependencies — Vue 3, frappe-ui, Vite build tooling",
+      "exports": [],
+      "depends_on": [],
+      "sections": ["Scripts", "Dependencies", "Dev dependencies"]
+    }
+  }
+}
