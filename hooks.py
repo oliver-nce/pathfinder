@@ -1,5 +1,5 @@
 app_name = "pathfinder"
-app_title = "Pathfinder"
+app_title = "pathfinder"
 app_publisher = "NCE"
 app_description = "Visual field-path navigator for Frappe — create virtual fields by traversing DocType link chains"
 app_icon = "octicon octicon-link"
