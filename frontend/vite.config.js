@@ -9,7 +9,7 @@ export default defineConfig({
       entry: path.resolve(__dirname, "src/main.js"),
       name: "Pathfinder",
       fileName: () => "pathfinder.bundle.js",
-      formats: ["es"],
+      formats: ["umd"],
     },
     outDir: "../pathfinder/public/js",
     emptyOutDir: false,
