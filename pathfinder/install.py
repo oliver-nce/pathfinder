@@ -1,3 +1,15 @@
+# -*- coding: utf-8 -*-
+"""
+pathfinder.install
+~~~~~~~~~~~~~~~~~~
+
+Installation hook — generates sample demo data after app installation.
+
+Frappe v15 / v16 compatible.
+"""
+
+from __future__ import unicode_literals
+
 import frappe
 from frappe import _
 

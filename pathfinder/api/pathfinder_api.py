@@ -1,3 +1,25 @@
+# -*- coding: utf-8 -*-
+"""
+pathfinder.api.pathfinder_api
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Whitelisted API endpoints for the pathfinder app.
+
+Usage from client JS:
+    frappe.call({
+        method: "pathfinder.api.pathfinder_api.get_doctype_fields",
+        args: { doctype: "Customer" },
+        callback: (r) => console.log(r.message),
+    });
+
+Usage via REST:
+    GET  /api/method/pathfinder.api.pathfinder_api.get_doctype_fields?doctype=Customer
+
+Frappe v15/v16 compatible.
+"""
+
+from __future__ import unicode_literals
+
 import frappe
 from frappe import _
 
@@ -6,7 +28,7 @@ from frappe import _
 # 1. get_doctype_fields
 # ---------------------------------------------------------------------------
 @frappe.whitelist()
-def get_doctype_fields(doctype: str) -> list[dict]:
+def get_doctype_fields(doctype: str) -> list:
     """Return field metadata for a given DocType (used by path navigation).
 
     Excludes layout break fields (Section Break, Column Break, Tab Break, HTML).
@@ -40,7 +62,7 @@ def get_doctype_fields(doctype: str) -> list[dict]:
 # 2. get_whitelisted_methods
 # ---------------------------------------------------------------------------
 @frappe.whitelist()
-def get_whitelisted_methods(doctype: str) -> list[str]:
+def get_whitelisted_methods(doctype: str) -> list:
     """Return whitelisted methods on a DocType's controller class."""
     frappe.has_permission(doctype, throw=True)
     controller = frappe.get_meta(doctype).get_controller()
@@ -56,7 +78,7 @@ def get_whitelisted_methods(doctype: str) -> list[str]:
 # 3. get_virtual_fields
 # ---------------------------------------------------------------------------
 @frappe.whitelist()
-def get_virtual_fields(doctype: str) -> list[dict]:
+def get_virtual_fields(doctype: str) -> list:
     """Return all enabled virtual field definitions for a DocType."""
     frappe.has_permission(doctype, throw=True)
     return frappe.get_all(
@@ -108,7 +130,7 @@ def resolve_virtual_fields(doctype: str, docname: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# 5. resolve_single_path (standalone resolver without needing virtual field record)
+# 5. resolve_single_path
 # ---------------------------------------------------------------------------
 @frappe.whitelist()
 def resolve_single_path(doctype: str, docname: str, path: str) -> dict:
@@ -146,7 +168,7 @@ def build_jinja_tag(doctype: str, path: str) -> str:
 # Core path resolver — MANY-TO-ONE (Phase 1)
 # ---------------------------------------------------------------------------
 
-def _resolve_path(doc, path: str):
+def _resolve_path(doc, path):
     """Walk a dot-notation path through linked documents.
 
     Phase 1: follows Link fields only (many-to-one / drill-down direction).
@@ -157,9 +179,6 @@ def _resolve_path(doc, path: str):
     - Table fields: iterate child rows and return list/aggregation
     - Dynamic Link fields: resolve target doctype from companion field
     - Recordset building: combine multiple hops into a result set
-
-    For now, Dynamic Link fields are followed if the companion fieldname
-    convention is detectable (field + '_type'). If not, returns None.
     """
     segments = path.split(".")
     current = doc
@@ -169,7 +188,6 @@ def _resolve_path(doc, path: str):
             return None
 
         if i < len(segments) - 1:
-            # Intermediate segment: must be a Link — fetch the linked doc
             link_value = current.get(segment)
             if not link_value:
                 return None
@@ -182,13 +200,10 @@ def _resolve_path(doc, path: str):
             if field.fieldtype == "Link" and field.options:
                 current = frappe.get_doc(field.options, link_value)
             # PHASE 2 — ONE-TO-MANY EXTENSION
-            # Add Table field handling here:
             # elif field.fieldtype in ("Table", "Table MultiSelect"):
             #     return _resolve_table_path(current, field, segments[i+1:])
-            #
-            # Add Dynamic Link handling here:
             # elif field.fieldtype == "Dynamic Link":
-            #     target_dt = current.get(field.options + "_type") or current.get(segment + "_type")
+            #     target_dt = current.get(field.options) or current.get(segment + "_type")
             #     if target_dt:
             #         current = frappe.get_doc(target_dt, link_value)
             #     else:
@@ -196,13 +211,12 @@ def _resolve_path(doc, path: str):
             else:
                 return None
         else:
-            # Terminal segment: return the value
             return current.get(segment)
 
     return None
 
 
-def _build_jinja_tag(doctype: str, path: str) -> str:
+def _build_jinja_tag(doctype, path):
     """Generate a Jinja template tag for a given path.
 
     Phase 1: generates simple {{ doc.<path> }} for direct fields,
@@ -211,30 +225,28 @@ def _build_jinja_tag(doctype: str, path: str) -> str:
     PHASE 2 — ONE-TO-MANY EXTENSION
     When Phase 2 is added, this function will also generate:
     - {% for row in doc.items %}{{ row.fieldname }}{% endfor %}
-    - Aggregation tags: {{ doc.items | sum('fieldname') }}
+    - Aggregation tags
     """
     segments = path.split(".")
 
     if len(segments) <= 1:
-        return f"{{{{ doc.{path} }}}}"
+        return "{{{{ doc.{0} }}}}".format(path)
 
-    # Check if we have a simple chain (all Link hops, no Table)
-    # For Phase 1, assume all intermediate segments are Links
-    return f"{{{{ doc.{path} }}}}"
+    return "{{{{ doc.{0} }}}}".format(path)
 
 
 # ---------------------------------------------------------------------------
-# 7. create_virtual_field (for popup workflow)
+# 7. create_virtual_field
 # ---------------------------------------------------------------------------
 @frappe.whitelist()
 def create_virtual_field(
-    source_doctype: str,
-    field_label: str,
-    field_path: str,
-    description: str = "",
-    show_in_form: int = 1,
-    show_in_list: int = 0,
-    column_order: int = 0,
+    source_doctype,
+    field_label,
+    field_path,
+    description="",
+    show_in_form=1,
+    show_in_list=0,
+    column_order=0,
 ):
     """Create a Pathfinder Virtual Field record from a user-selected path.
 
@@ -243,7 +255,6 @@ def create_virtual_field(
     """
     frappe.has_permission("Pathfinder Virtual Field", "create", throw=True)
 
-    # Check for duplicate field_label within the same source_doctype
     existing = frappe.db.exists(
         "Pathfinder Virtual Field",
         {"source_doctype": source_doctype, "field_label": field_label},
@@ -267,7 +278,6 @@ def create_virtual_field(
         "description": description,
     }).insert()
 
-    # Invalidate cache so the onload hook picks up the new virtual field
     cache_key = "pathfinder:doctypes_with_vfields"
     frappe.cache().hset(cache_key, source_doctype, 1)
 
@@ -295,16 +305,10 @@ def inject_virtual_fields(doc, method):
     """
     doctype = doc.doctype
 
-    # PHASE 2 — ONE-TO-MANY EXTENSION
-    # When table-field recordsets are added, this function will also
-    # attach aggregated child values (e.g. sum, count, first-child).
-
-    # Check cache: does this doctype have any virtual fields?
-    cache_key = f"pathfinder:doctypes_with_vfields"
+    cache_key = "pathfinder:doctypes_with_vfields"
     has_vfields = frappe.cache().hget(cache_key, doctype)
 
     if has_vfields is None:
-        # Cache miss — check DB
         count = frappe.db.count(
             "Pathfinder Virtual Field",
             filters={"source_doctype": doctype, "enabled": 1},
@@ -313,7 +317,7 @@ def inject_virtual_fields(doc, method):
         frappe.cache().hset(cache_key, doctype, 1 if has_vfields else 0)
 
     if not has_vfields:
-        return  # Zero-cost: skip entirely
+        return
 
     vfields = frappe.get_all(
         "Pathfinder Virtual Field",

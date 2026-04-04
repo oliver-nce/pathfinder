@@ -1,8 +1,4 @@
-"""Re-export all whitelisted API endpoints.
-
-This allows clean imports like:
-    from pathfinder.api import get_doctype_fields, resolve_virtual_fields
-"""
+from __future__ import unicode_literals
 
 from .pathfinder_api import (
     get_doctype_fields,

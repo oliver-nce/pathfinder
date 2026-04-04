@@ -1,13 +1,49 @@
-*.pyc
-*.pyo
+# Python
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
 *.egg-info/
+*.egg
 dist/
 build/
-*.egg
-.env
-node_modules/
+eggs/
+*.egg-info/
+.installed.cfg
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+
+# OS
 .DS_Store
+Thumbs.db
+desktop.ini
+
+# Frappe / Bench
+node_modules/
+.wnf-build/
+*.pyc
+
+# Distribution
+*.tar.gz
+*.whl
+
+# Logs
 *.log
-coverage/
+
+# Testing
+.pytest_cache/
 .coverage
+htmlcov/

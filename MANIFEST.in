@@ -1,8 +1,20 @@
-include requirements.txt
-include README.md
-include license.txt
-include setup.py
 include MANIFEST.in
-recursive-include pathfinder *.json *.py *.html *.md
+include requirements.txt
+include *.json
+include *.md
+include *.py
+include *.txt
+recursive-include pathfinder *.css
+recursive-include pathfinder *.csv
+recursive-include pathfinder *.html
+recursive-include pathfinder *.ico
+recursive-include pathfinder *.js
+recursive-include pathfinder *.json
+recursive-include pathfinder *.md
+recursive-include pathfinder *.png
+recursive-include pathfinder *.py
+recursive-include pathfinder *.svg
+recursive-include pathfinder *.txt
+recursive-include pathfinder *.vue
 recursive-include frontend *.*
-recursive-include public **/*
+recursive-exclude pathfinder *.pyc

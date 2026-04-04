@@ -1,1 +1,1 @@
-# frappe -- installed via bench
+# Frappe -- installed and managed by bench
