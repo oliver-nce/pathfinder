@@ -5,3 +5,6 @@ export { PathFinderCore } from "./components/PathFinderCore.vue";
 export { PathColumn } from "./components/PathColumn.vue";
 export { PathFinderDialog } from "./components/PathFinderDialog.vue";
 export { PathFinderPanel } from "./components/PathFinderPanel.vue";
+
+// Desk integration components
+export { default as PathfinderPopup } from "./desk/PathfinderPopup.vue";

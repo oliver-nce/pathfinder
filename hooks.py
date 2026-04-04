@@ -8,8 +8,13 @@ app_email = ""
 app_license = "MIT"
 app_version = "0.0.1"
 
-# Frontend bundle available on all Desk pages
-app_include_js = "/assets/pathfinder/js/pathfinder.bundle.js"
+# Frontend bundles loaded on all Desk pages
+app_include_js = [
+    "/assets/pathfinder/js/pathfinder.bundle.js",
+    "/assets/pathfinder/js/pathfinder_control.js",
+    "/assets/pathfinder/js/pathfinder_desk.js",
+    "/assets/pathfinder/js/enrollment_form.js",
+]
 
 # Auto-inject virtual field values when documents load
 doc_events = {
@@ -17,3 +22,6 @@ doc_events = {
         "onload": "pathfinder.api.pathfinder_api.inject_virtual_fields"
     }
 }
+
+# Generate demo data on install
+after_install = "pathfinder.install.after_install"

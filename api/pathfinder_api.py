@@ -224,7 +224,64 @@ def _build_jinja_tag(doctype: str, path: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# 7. inject_virtual_fields (doc_events onload hook)
+# 7. create_virtual_field (for popup workflow)
+# ---------------------------------------------------------------------------
+@frappe.whitelist()
+def create_virtual_field(
+    source_doctype: str,
+    field_label: str,
+    field_path: str,
+    description: str = "",
+    show_in_form: int = 1,
+    show_in_list: int = 0,
+    column_order: int = 0,
+):
+    """Create a Pathfinder Virtual Field record from a user-selected path.
+
+    Returns the created document (with auto-resolved terminal metadata).
+    Called from the Pathfinder popup when user selects "Create Virtual Field".
+    """
+    frappe.has_permission("Pathfinder Virtual Field", "create", throw=True)
+
+    # Check for duplicate field_label within the same source_doctype
+    existing = frappe.db.exists(
+        "Pathfinder Virtual Field",
+        {"source_doctype": source_doctype, "field_label": field_label},
+    )
+    if existing:
+        frappe.throw(
+            _("A virtual field with label '{}' already exists for {}").format(
+                field_label, source_doctype
+            )
+        )
+
+    vf = frappe.get_doc({
+        "doctype": "Pathfinder Virtual Field",
+        "source_doctype": source_doctype,
+        "field_label": field_label,
+        "field_path": field_path,
+        "show_in_form": show_in_form,
+        "show_in_list": show_in_list,
+        "column_order": column_order,
+        "enabled": 1,
+        "description": description,
+    }).insert()
+
+    # Invalidate cache so the onload hook picks up the new virtual field
+    cache_key = "pathfinder:doctypes_with_vfields"
+    frappe.cache().hset(cache_key, source_doctype, 1)
+
+    return {
+        "name": vf.name,
+        "field_label": vf.field_label,
+        "field_path": vf.field_path,
+        "terminal_fieldtype": vf.terminal_fieldtype,
+        "terminal_options": vf.terminal_options,
+    }
+
+
+# ---------------------------------------------------------------------------
+# 8. inject_virtual_fields (doc_events onload hook)
 # ---------------------------------------------------------------------------
 def inject_virtual_fields(doc, method):
     """Attach resolved virtual field values to a document on load.

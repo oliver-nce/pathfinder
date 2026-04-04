@@ -7,7 +7,7 @@
 
   "architecture": {
     "overview": "Pathfinder is a standalone Frappe v15 app providing a visual field-path navigator. Users browse DocType link chains (e.g. Sales Order → Customer → Territory → name) and create *virtual fields* — dot-notation paths that resolve values across linked documents at runtime. Supports dual output: Frappe paths for virtual fields and Vue form display, Jinja tags for email/SMS/text templates. Consuming apps (NCE Events, NCE Studio) import components or call APIs.",
-    "data_flow": "Vue SPA (PathFinderCore → PathColumn) → frappe.call(pathfinder.api.get_doctype_fields) → Frappe ORM → MariaDB | User selects path → PathFinderPanel emits path-selected or jinja-tag-selected event → consuming app handles output | Virtual field saved as Pathfinder Virtual Field DocType → on document load, inject_virtual_fields hook resolves values and attaches to doc._virtual_fields | resolve_virtual_fields API returns both resolved value and Jinja tag for any path",
+    "data_flow": "Vue SPA (PathFinderCore → PathColumn) → frappe.call(pathfinder.api.get_doctype_fields) → Frappe ORM → MariaDB | User selects path → PathFinderPanel emits path-selected or jinja-tag-selected event → consuming app handles output | Virtual field saved as Pathfinder Virtual Field DocType → on document load, inject_virtual_fields hook resolves values and attaches to doc._virtual_fields | resolve_virtual_fields API returns both resolved value and Jinja tag for any path | PathfinderPopup (Desk) → user navigates path → 3-option output (copy Jinja, create virtual field, copy Frappe path) → window.openPathfinderPopup() global API for consuming apps",
     "key_patterns": [
       "Many-to-One traversal only (Phase 1) — follows Link fields in drill-down direction",
       "Dual output: every resolver returns both Frappe dot-notation path AND Jinja template tag",
@@ -15,16 +15,20 @@
       "inject_virtual_fields doc_events hook is zero-cost — caches doctypes-with-vfields in Redis before any DB query",
       "PathFinderPanel is refactored to be event-driven — no canvasStore or studioStore coupling",
       "useFieldMeta composable uses module-level Map cache + in-flight request deduplication",
-      "Pathfinder Virtual Field DocType auto-resolves terminal_fieldtype on save via controller validate()"
+      "Pathfinder Virtual Field DocType auto-resolves terminal_fieldtype on save via controller validate()",
+      "PathfinderPopup (Phase 3) — Desk modal with 3-option output: copy Jinja tag, create virtual field, copy Frappe path",
+      "window.openPathfinderPopup(rootDoctype, options?) — global API for consuming apps to invoke popup programmatically",
+      "pathfinder_desk.js auto-injects Pathfinder button into Customize Form View toolbar",
+      "pathfinder_control.js renders virtual field values on any DocType form dashboard"
     ]
   },
 
   "backend": {
     "hooks.py": {
-      "purpose": "App config: metadata, frontend JS bundle include on all Desk pages, doc_events onload hook for virtual field injection",
+      "purpose": "App config: metadata, 3 frontend JS bundles (Vue library + desk control + desk API), doc_events onload hook for virtual field injection",
       "exports": ["app_name", "app_include_js", "doc_events"],
-      "depends_on": ["api/pathfinder_api.py"],
-      "sections": ["App Metadata", "Site-wide JS Include", "Document Event Hook"]
+      "depends_on": ["api/pathfinder_api.py", "pathfinder/public/js/pathfinder_control.js", "pathfinder/public/js/pathfinder_desk.js"],
+      "sections": ["App Metadata", "Site-wide JS Includes (3 bundles)", "Document Event Hook"]
     },
     "install.py": {
       "purpose": "Post-install hook — placeholder for default role/permission setup",
@@ -41,6 +45,7 @@
         "resolve_virtual_fields",
         "resolve_single_path",
         "build_jinja_tag",
+        "create_virtual_field",
         "_resolve_path",
         "_build_jinja_tag",
         "inject_virtual_fields"
@@ -55,6 +60,7 @@
         "Jinja tag generation",
         "Core path resolver (Many-to-One)",
         "Core Jinja tag builder",
+        "Create virtual field (Phase 3 — popup workflow)",
         "Doc events onload injection (zero-cost cache)"
       ]
     },
@@ -192,6 +198,70 @@
       "exports": [],
       "depends_on": [],
       "sections": ["Scripts", "Dependencies", "Dev dependencies"]
+    },
+    "frontend/src/desk/PathfinderPopup.vue": {
+      "purpose": "Phase 3 — Desk modal popup for path selection with 3-option output. User navigates path via PathFinderCore, then chooses: copy Jinja tag to clipboard, create virtual field (sub-form with label/description/show toggles), or copy Frappe path to clipboard. Always operates from a rootDoctype prop.",
+      "exports": ["close", "copyJinjaTag", "createVirtualField", "copyFrappePath", "submitVirtualField"],
+      "props": ["rootDoctype"],
+      "emits": ["close", "path-selected", "jinja-tag-selected", "virtual-field-created"],
+      "depends_on": ["frontend/src/components/PathFinderCore.vue", "pathfinder.api.create_virtual_field"],
+      "sections": ["Popup overlay with backdrop blur", "PathFinderCore navigation area", "3-option output dialog (Jinja tag, virtual field, Frappe path)", "Virtual field creation sub-form", "Clipboard copy with frappe.show_alert feedback"]
+    }
+  },
+
+  "desk": {
+    "pathfinder/public/js/pathfinder_desk.js": {
+      "purpose": "Phase 3 — Global API and Desk UI injection. Exposes window.openPathfinderPopup(rootDoctype, options?) for programmatic popup invocation. Auto-injects Pathfinder button into Customize Form View toolbar via route watching. Consuming apps use the options callbacks to intercept clipboard actions.",
+      "exports": ["window.openPathfinderPopup", "window.closePathfinderPopup"],
+      "depends_on": ["frontend/src/desk/PathfinderPopup.vue", "window.Pathfinder (from bundle)"],
+      "sections": ["openPathfinderPopup global function", "createPopupApp (Vue app factory)", "injectCustomizeFormButton (route watcher + DOM injection)", "Clipboard copy utilities (clipboard API + fallback)"]
+    },
+    "pathfinder/public/js/pathfinder_control.js": {
+      "purpose": "Phase 3 — Renders resolved virtual field values on any DocType form. Hooks into frappe.ui.form.on('*') refresh event. Reads doc._virtual_fields (set by server-side onload hook), renders as dashboard section. Also adds 'Virtual Fields' inner button linking to /app/pathfinder.",
+      "exports": [],
+      "depends_on": ["api/pathfinder_api.py (inject_virtual_fields hook)"],
+      "sections": ["renderVirtualFields (dashboard section builder)", "addManageButton (form header button)", "frappe.ui.form.on('*', {refresh}) hook"]
+    },
+    "pathfinder/public/js/enrollment_form.js": {
+      "purpose": "Demo app — Enrollments form integration. Adds Pathfinder button to form header, populates Instructions tab with usage docs and Reset Sample Data button.",
+      "exports": [],
+      "depends_on": ["pathfinder/demo/api.py", "window.openPathfinderPopup"],
+      "sections": ["injectPathfinderButton (form header button)", "populateInstructionsTab (How-To content)", "addResetDataButton (calls reset_sample_data API)"]
+    }
+  },
+
+  "demo_app": {
+    "pathfinder/demo_app/doctype/events/": {
+      "purpose": "Demo DocType — sample Events with name, dates, location. Naming: PF-EVT-YYYY-####.",
+      "key_fields": ["event_name", "start_date", "end_date", "location"],
+      "depends_on": []
+    },
+    "pathfinder/demo_app/doctype/families/": {
+      "purpose": "Demo DocType — sample Families with contact info. Naming: PF-FAM-YYYY-####.",
+      "key_fields": ["first_name", "last_name", "email", "phone", "zip_code"],
+      "depends_on": []
+    },
+    "pathfinder/demo_app/doctype/people/": {
+      "purpose": "Demo DocType — sample People linked to Families. Naming: PF-PER-YYYY-####.",
+      "key_fields": ["first_name", "last_name", "family_id", "gender", "date_of_birth"],
+      "depends_on": ["pathfinder/demo_app/doctype/families/"]
+    },
+    "pathfinder/demo_app/doctype/enrollments/": {
+      "purpose": "Demo DocType — main demo form. Links Events and People, has RTF Report field with Jinja template, custom tabs (About Pathfinder, Instructions, Pathfinder Integration). Naming: PF-ENR-YYYY-#####.",
+      "key_fields": ["event_id", "person_id", "enrollment_date", "report"],
+      "depends_on": ["pathfinder/demo_app/doctype/events/", "pathfinder/demo_app/doctype/people/"],
+      "controller_hooks": ["on_create — auto-populates RTF report with Jinja template"]
+    },
+    "pathfinder/demo/data_generator.py": {
+      "purpose": "Generates and deletes realistic US-based sample data: 20 Events, 50 Families, 150 People, 600-1000 Enrollments.",
+      "exports": ["generate_sample_data", "delete_sample_data"],
+      "depends_on": ["pathfinder/demo_app/doctype/"],
+      "sections": ["US name pools (male/female first names, last names)", "Event/Family/People/Enrollment generators", "Batch commits every 5-30 records"]
+    },
+    "pathfinder/demo/api.py": {
+      "purpose": "Whitelisted endpoint for resetting sample data from the Instructions tab.",
+      "exports": ["reset_sample_data"],
+      "depends_on": ["pathfinder/demo/data_generator.py"]
     }
   }
 }
