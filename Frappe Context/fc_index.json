@@ -1,0 +1,399 @@
+{
+  "version": 2,
+  "generated": "2026-03-23",
+  "axes": {
+    "b": "Backend: ORM, DB, hooks, APIs, permissions, jobs, caching, error handling",
+    "u": "UI: Vue, CSS, tokens, workspaces, icons, client JS, theming",
+    "f": "Framework: architecture, DocTypes, bench/CLI, deployment, testing"
+  },
+  "scoring": "0.0=n/a, 0.1-0.2=rare, 0.3-0.5=sometimes, 0.6-0.8=frequent, 0.9-1.0=essential",
+  "tiers": {
+    "rag": "Curated chunks, small, load first",
+    "guide": "Consolidated guides, medium, load for specific topics",
+    "standalone": "Narrow scope files",
+    "jsonl": "Deep reference from docs.frappe.io — large, last resort"
+  },
+  "scope": "Frappe framework only. ERPNext and other Frappe apps are out of scope.",
+  "total_chunks": 42,
+  "total_tokens": 254650,
+  "chunks": [
+    {
+      "file": "frappe_rag_chunks/00_index.md",
+      "tokens": 900,
+      "desc": "RAG master index + overlap map",
+      "b": 0.3,
+      "u": 0.3,
+      "f": 0.5,
+      "tier": "rag"
+    },
+    {
+      "file": "frappe_rag_chunks/01_introduction_core_concepts.md",
+      "tokens": 625,
+      "desc": "import frappe, core modules, bench console",
+      "b": 0.7,
+      "u": 0.1,
+      "f": 0.8,
+      "tier": "rag"
+    },
+    {
+      "file": "frappe_rag_chunks/02_database_operations_basic.md",
+      "tokens": 850,
+      "desc": "frappe.db CRUD: get_value, set_value, exists, count",
+      "b": 0.95,
+      "u": 0.0,
+      "f": 0.7,
+      "tier": "rag"
+    },
+    {
+      "file": "frappe_rag_chunks/03_database_operations_advanced.md",
+      "tokens": 1050,
+      "desc": "Transactions, bulk ops, schema, Query Builder",
+      "b": 0.95,
+      "u": 0.0,
+      "f": 0.7,
+      "tier": "rag"
+    },
+    {
+      "file": "frappe_rag_chunks/04_document_orm_basic.md",
+      "tokens": 950,
+      "desc": "get_doc, new_doc, CRUD",
+      "b": 0.95,
+      "u": 0.0,
+      "f": 0.8,
+      "tier": "rag"
+    },
+    {
+      "file": "frappe_rag_chunks/05_document_orm_advanced.md",
+      "tokens": 1275,
+      "desc": "Child tables, copy/rename, workflow, submit/cancel",
+      "b": 0.9,
+      "u": 0.0,
+      "f": 0.7,
+      "tier": "rag"
+    },
+    {
+      "file": "frappe_rag_chunks/06_query_helpers.md",
+      "tokens": 1300,
+      "desc": "get_all, get_list, filters, pagination",
+      "b": 0.9,
+      "u": 0.0,
+      "f": 0.7,
+      "tier": "rag"
+    },
+    {
+      "file": "frappe_rag_chunks/07_users_permissions.md",
+      "tokens": 1350,
+      "desc": "Sessions, roles, permission checks, sharing",
+      "b": 0.85,
+      "u": 0.1,
+      "f": 0.7,
+      "tier": "rag"
+    },
+    {
+      "file": "frappe_rag_chunks/08_cache_operations.md",
+      "tokens": 1150,
+      "desc": "Redis cache API, expiration, hash/list/set ops",
+      "b": 0.8,
+      "u": 0.0,
+      "f": 0.6,
+      "tier": "rag"
+    },
+    {
+      "file": "frappe_rag_chunks/09_files_attachments.md",
+      "tokens": 1425,
+      "desc": "File uploads, attachments, binary content",
+      "b": 0.7,
+      "u": 0.2,
+      "f": 0.5,
+      "tier": "rag"
+    },
+    {
+      "file": "frappe_rag_chunks/10_email_notifications.md",
+      "tokens": 1500,
+      "desc": "frappe.sendmail, templates, queue",
+      "b": 0.7,
+      "u": 0.1,
+      "f": 0.5,
+      "tier": "rag"
+    },
+    {
+      "file": "frappe_rag_chunks/11_background_jobs.md",
+      "tokens": 1550,
+      "desc": "frappe.enqueue, queues, scheduler, RQ",
+      "b": 0.85,
+      "u": 0.0,
+      "f": 0.6,
+      "tier": "rag"
+    },
+    {
+      "file": "frappe_rag_chunks/12_utilities_datetime.md",
+      "tokens": 1500,
+      "desc": "Date arithmetic, formatting, comparisons",
+      "b": 0.6,
+      "u": 0.0,
+      "f": 0.4,
+      "tier": "rag"
+    },
+    {
+      "file": "frappe_rag_chunks/13_utilities_numbers_strings.md",
+      "tokens": 1650,
+      "desc": "flt, cint, cstr, formatting, rounding",
+      "b": 0.6,
+      "u": 0.0,
+      "f": 0.4,
+      "tier": "rag"
+    },
+    {
+      "file": "frappe_rag_chunks/14_custom_fields_property_setters.md",
+      "tokens": 1825,
+      "desc": "Custom fields, field types, property setters",
+      "b": 0.85,
+      "u": 0.1,
+      "f": 0.6,
+      "tier": "rag"
+    },
+    {
+      "file": "frappe_rag_chunks/15_doctype_meta_schema.md",
+      "tokens": 1650,
+      "desc": "DocType meta, field definitions, schema queries",
+      "b": 0.85,
+      "u": 0.1,
+      "f": 0.7,
+      "tier": "rag"
+    },
+    {
+      "file": "frappe_rag_chunks/16_hooks_document_events.md",
+      "tokens": 1750,
+      "desc": "Controller methods, event order, hooks.py",
+      "b": 0.95,
+      "u": 0.2,
+      "f": 0.8,
+      "tier": "rag"
+    },
+    {
+      "file": "frappe_rag_chunks/17_api_whitelisted_methods.md",
+      "tokens": 1625,
+      "desc": "@frappe.whitelist(), REST API patterns",
+      "b": 0.9,
+      "u": 0.1,
+      "f": 0.7,
+      "tier": "rag"
+    },
+    {
+      "file": "frappe_rag_chunks/18_logging_error_handling.md",
+      "tokens": 1625,
+      "desc": "frappe.throw, exceptions, Error Log",
+      "b": 0.8,
+      "u": 0.1,
+      "f": 0.6,
+      "tier": "rag"
+    },
+    {
+      "file": "frappe_rag_chunks/19_site_configuration.md",
+      "tokens": 1475,
+      "desc": "site_config.json, mail/redis/db settings",
+      "b": 0.6,
+      "u": 0.0,
+      "f": 0.5,
+      "tier": "rag"
+    },
+    {
+      "file": "theming_css_systems.md",
+      "tokens": 8400,
+      "desc": "CSS variables, selectors, all UI application points",
+      "b": 0.1,
+      "u": 0.95,
+      "f": 0.5,
+      "tier": "guide"
+    },
+    {
+      "file": "theming_vue_tokens.md",
+      "tokens": 5900,
+      "desc": "Vue golden rules, NCE tokens, two-file architecture",
+      "b": 0.05,
+      "u": 1.0,
+      "f": 0.3,
+      "tier": "guide"
+    },
+    {
+      "file": "v15_v16_compat.md",
+      "tokens": 5800,
+      "desc": "v15/v16 quick-ref, policy, migration guide",
+      "b": 0.7,
+      "u": 0.4,
+      "f": 0.8,
+      "tier": "guide"
+    },
+    {
+      "file": "workspace_desktop_setup.md",
+      "tokens": 11400,
+      "desc": "Desktop icons, workspaces, sidebar, app routing",
+      "b": 0.2,
+      "u": 0.85,
+      "f": 0.6,
+      "tier": "guide"
+    },
+    {
+      "file": "frappe-csv-token-access.md",
+      "tokens": 2350,
+      "desc": "CSV export with token auth, Sheets integration",
+      "b": 0.6,
+      "u": 0.1,
+      "f": 0.3,
+      "tier": "standalone"
+    },
+    {
+      "file": "frappe-discovery-tool-spec.md",
+      "tokens": 9000,
+      "desc": "Desktop app spec for Frappe discovery",
+      "b": 0.3,
+      "u": 0.4,
+      "f": 0.2,
+      "tier": "standalone"
+    },
+    {
+      "file": "frappe-manager-ui-actions.md",
+      "tokens": 1625,
+      "desc": "Manager UI button/action definitions",
+      "b": 0.3,
+      "u": 0.6,
+      "f": 0.2,
+      "tier": "standalone"
+    },
+    {
+      "file": "frappe-ui-migration-plan.docx",
+      "tokens": 3500,
+      "desc": "UI framework migration plan",
+      "b": 0.2,
+      "u": 0.7,
+      "f": 0.4,
+      "tier": "standalone"
+    },
+    {
+      "file": "frappe_variables.txt",
+      "tokens": 6250,
+      "desc": "Variable names and conventions",
+      "b": 0.5,
+      "u": 0.5,
+      "f": 0.6,
+      "tier": "standalone"
+    },
+    {
+      "file": "frappe_docs_jsonl/01_getting_started.jsonl",
+      "tokens": 14000,
+      "desc": "Installation, prerequisites, tutorials",
+      "b": 0.4,
+      "u": 0.2,
+      "f": 0.9,
+      "tier": "jsonl"
+    },
+    {
+      "file": "frappe_docs_jsonl/02_core_concepts.jsonl",
+      "tokens": 12400,
+      "desc": "DocTypes, naming, controllers, child tables",
+      "b": 0.7,
+      "u": 0.1,
+      "f": 0.95,
+      "tier": "jsonl"
+    },
+    {
+      "file": "frappe_docs_jsonl/03_doctype_system.jsonl",
+      "tokens": 9900,
+      "desc": "DocType creation, field types, naming rules",
+      "b": 0.8,
+      "u": 0.1,
+      "f": 0.9,
+      "tier": "jsonl"
+    },
+    {
+      "file": "frappe_docs_jsonl/04_desk_ui.jsonl",
+      "tokens": 11800,
+      "desc": "Desk forms, lists, views, dialogs, controls",
+      "b": 0.2,
+      "u": 0.8,
+      "f": 0.8,
+      "tier": "jsonl"
+    },
+    {
+      "file": "frappe_docs_jsonl/05_js_client_api.jsonl",
+      "tokens": 13500,
+      "desc": "Client-side JS: frm, cur_frm, call, xcall",
+      "b": 0.3,
+      "u": 0.9,
+      "f": 0.8,
+      "tier": "jsonl"
+    },
+    {
+      "file": "frappe_docs_jsonl/06_python_api.jsonl",
+      "tokens": 30400,
+      "desc": "Full Python API: frappe.*, utils, database",
+      "b": 0.9,
+      "u": 0.0,
+      "f": 0.95,
+      "tier": "jsonl"
+    },
+    {
+      "file": "frappe_docs_jsonl/07_portal_web.jsonl",
+      "tokens": 7400,
+      "desc": "Portal pages, web views, templates",
+      "b": 0.3,
+      "u": 0.7,
+      "f": 0.6,
+      "tier": "jsonl"
+    },
+    {
+      "file": "frappe_docs_jsonl/08_auth_integration.jsonl",
+      "tokens": 16300,
+      "desc": "OAuth, API keys, webhooks, REST API",
+      "b": 0.7,
+      "u": 0.1,
+      "f": 0.7,
+      "tier": "jsonl"
+    },
+    {
+      "file": "frappe_docs_jsonl/09_bench_cli.jsonl",
+      "tokens": 19200,
+      "desc": "Bench commands, site management",
+      "b": 0.3,
+      "u": 0.0,
+      "f": 0.7,
+      "tier": "jsonl"
+    },
+    {
+      "file": "frappe_docs_jsonl/10_deployment.jsonl",
+      "tokens": 6400,
+      "desc": "Production setup, nginx, supervisor",
+      "b": 0.2,
+      "u": 0.0,
+      "f": 0.6,
+      "tier": "jsonl"
+    },
+    {
+      "file": "frappe_docs_jsonl/11_testing_debugging.jsonl",
+      "tokens": 12100,
+      "desc": "Unit tests, UI tests, debugging",
+      "b": 0.5,
+      "u": 0.1,
+      "f": 0.7,
+      "tier": "jsonl"
+    },
+    {
+      "file": "frappe_docs_jsonl/12_guides_app_dev.jsonl",
+      "tokens": 13400,
+      "desc": "App development guides, patterns, recipes",
+      "b": 0.7,
+      "u": 0.3,
+      "f": 0.85,
+      "tier": "jsonl"
+    },
+    {
+      "file": "frappe_docs_jsonl/13_misc.jsonl",
+      "tokens": 6600,
+      "desc": "Translations, print formats, energy points",
+      "b": 0.3,
+      "u": 0.2,
+      "f": 0.4,
+      "tier": "jsonl"
+    }
+  ]
+}
