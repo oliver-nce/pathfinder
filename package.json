@@ -1,0 +1,10 @@
+{
+  "name": "pathfinder",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "cd frontend && vite",
+    "build": "cd frontend && vite build",
+    "postinstall": "cd frontend && yarn install"
+  }
+}
