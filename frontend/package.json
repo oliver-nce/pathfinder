@@ -1,0 +1,18 @@
+{
+  "name": "pathfinder-frontend",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build --base=/assets/pathfinder/js/ && yarn copy-html-entry",
+    "copy-html-entry": "cp ../pathfinder/public/js/pathfinder.bundle.html ../pathfinder/www/pathfinder.html"
+  },
+  "dependencies": {
+    "vue": "^3.3.0",
+    "frappe-ui": "^0.1.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^4.5.0",
+    "vite": "^5.0.0"
+  }
+}

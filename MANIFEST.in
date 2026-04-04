@@ -1,0 +1,8 @@
+include requirements.txt
+include README.md
+include license.txt
+include setup.py
+include MANIFEST.in
+recursive-include pathfinder *.json *.py *.html *.md
+recursive-include frontend *.*
+recursive-include public **/*

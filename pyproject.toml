@@ -1,0 +1,16 @@
+[project]
+name = "pathfinder"
+authors = [
+    { name = "NCE", email = ""}
+]
+description = "Visual field-path navigator for Frappe — create virtual fields by traversing DocType link chains"
+requires-python = ">=3.10"
+readme = "README.md"
+dynamic = ["version"]
+dependencies = [
+    # "frappe~=15.0.0" # Installed via bench
+]
+
+[build-system]
+requires = ["flit_core >=3.4,<4"]
+build-backend = "flit_core.buildapi"

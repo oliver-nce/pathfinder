@@ -1,0 +1,125 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:source_doctype-field:field_label",
+ "creation": "2026-04-04 12:00:00.000000",
+ "default_view": "List",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "source_doctype",
+  "field_label",
+  "field_path",
+  "terminal_fieldtype",
+  "terminal_options",
+  "column_break_1",
+  "show_in_form",
+  "show_in_list",
+  "column_order",
+  "enabled",
+  "description"
+ ],
+ "fields": [
+  {
+   "fieldname": "source_doctype",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Source DocType",
+   "options": "DocType",
+   "reqd": 1
+  },
+  {
+   "fieldname": "field_label",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Field Label",
+   "reqd": 1
+  },
+  {
+   "fieldname": "field_path",
+   "fieldtype": "Small Text",
+   "label": "Field Path (dot-notation)",
+   "description": "e.g. customer.territory.name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "terminal_fieldtype",
+   "fieldtype": "Data",
+   "label": "Terminal Field Type",
+   "read_only": 1
+  },
+  {
+   "fieldname": "terminal_options",
+   "fieldtype": "Data",
+   "label": "Terminal Options",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "show_in_form",
+   "fieldtype": "Check",
+   "label": "Show in Form"
+  },
+  {
+   "default": "0",
+   "fieldname": "show_in_list",
+   "fieldtype": "Check",
+   "label": "Show in List"
+  },
+  {
+   "default": "0",
+   "fieldname": "column_order",
+   "fieldtype": "Int",
+   "label": "Column Order"
+  },
+  {
+   "default": "1",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Description"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-04-04 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "pathfinder",
+ "name": "Pathfinder Virtual Field",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "All",
+   "share": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
