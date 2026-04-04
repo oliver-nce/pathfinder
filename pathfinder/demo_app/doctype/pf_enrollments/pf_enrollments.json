@@ -23,7 +23,7 @@
       "in_list_view": 1,
       "in_standard_filter": 1,
       "label": "Event",
-      "options": "Events",
+      "options": "PF Events",
       "reqd": 1
     },
     {
@@ -32,7 +32,7 @@
       "in_list_view": 1,
       "in_standard_filter": 1,
       "label": "Person",
-      "options": "People",
+      "options": "PF People",
       "reqd": 1
     },
     {
@@ -57,7 +57,7 @@
       "fieldname": "about_description",
       "fieldtype": "HTML",
       "label": "About Description",
-      "options": "<div style='padding: 8px 0;'><h4>What is Pathfinder?</h4><p>Pathfinder is a visual field-path navigator for Frappe that lets you:</p><ul><li>Browse DocType link chains visually (e.g. Enrollment → Person → Family → last_name)</li><li>Create <strong>virtual fields</strong> — dot-notation paths that resolve values across linked documents at runtime</li><li>Generate <strong>Jinja tags</strong> for email/SMS/text templates (e.g. <code>{{ doc.person_id.family_id.last_name }}</code>)</li><li>Generate <strong>Frappe paths</strong> for programmatic use in custom code</li></ul></div>"
+      "options": "<div style='padding: 8px 0;'><h4>What is Pathfinder?</h4><p>Pathfinder is a visual field-path navigator for Frappe that lets you:</p><ul><li>Browse DocType link chains visually (e.g. PF Enrollments → PF Person → PF Family → last_name)</li><li>Create <strong>virtual fields</strong> — dot-notation paths that resolve values across linked documents at runtime</li><li>Generate <strong>Jinja tags</strong> for email/SMS/text templates (e.g. <code>{{ doc.person_id.family_id.last_name }}</code>)</li><li>Generate <strong>Frappe paths</strong> for programmatic use in custom code</li></ul></div>"
     },
     {
       "fieldname": "instructions_section",
@@ -85,7 +85,7 @@
   "modified": "2026-04-04 12:00:00.000000",
   "modified_by": "Administrator",
   "module": "demo_app",
-  "name": "Enrollments",
+  "name": "PF Enrollments",
   "naming_rule": "Expression",
   "owner": "Administrator",
   "permissions": [

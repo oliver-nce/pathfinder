@@ -8,7 +8,7 @@
 (function () {
   "use strict"
 
-  frappe.ui.form.on("Enrollments", {
+  frappe.ui.form.on("PF Enrollments", {
     refresh: function (frm) {
       injectPathfinderButton(frm)
       populateInstructionsTab(frm)
@@ -60,7 +60,6 @@
 
     var html =
       '<div class="pathfinder-instructions" style="padding: 12px 0;">' +
-
         '<h4>How to Use Pathfinder in a Jinja Template</h4>' +
         '<p>1. Place your cursor in the Report field below.</p>' +
         '<p>2. Click the <strong>Pathfinder</strong> button in the form header.</p>' +
@@ -72,25 +71,22 @@
         "{{ doc.event_id.event_name }}\n" +
         "{{ doc.person_id.family_id.email }}" +
         '</pre>' +
-
         '<h4 style="margin-top: 20px;">How to Create a Virtual Field</h4>' +
         '<p>1. Open Pathfinder and navigate to a field path.</p>' +
         '<p>2. Select <strong>"Create Virtual Field"</strong> in the output dialog.</p>' +
         '<p>3. Give it a label and save — it will be automatically resolved on every document load.</p>' +
         '<p>4. Virtual fields appear in the dashboard section at the top of the form.</p>' +
-
         '<h4 style="margin-top: 20px;">How to Add a Pathfinder Button to Any DocType</h4>' +
         '<p>In your custom app\'s JS file, add:</p>' +
         '<pre style="background: var(--gray-100); padding: 8px; border-radius: 4px; font-size: 12px;">' +
         'frappe.ui.form.on("Your DocType", {\n' +
         '  refresh: function(frm) {\n' +
-        '    frm.page.add_action_item("Pathfinder", function() {\n' +
+        '    frm.page.add_button(__("Pathfinder"), function() {\n' +
         '      window.openPathfinderPopup(frm.doctype);\n' +
-        '    });\n' +
+        '    }, "fa fa-compass");\n' +
         '  }\n' +
         '});' +
         '</pre>' +
-
       '</div>'
 
     $wrapper.html(html)

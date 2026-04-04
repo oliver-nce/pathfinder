@@ -1,5 +1,5 @@
 import frappe
 from frappe.model.document import Document
 
-class Events(Document):
+class PF_Families(Document):
 	pass

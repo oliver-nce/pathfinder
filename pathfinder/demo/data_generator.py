@@ -99,7 +99,7 @@ def _generate_events(count=20):
         start = date(2026, 1, 1) + timedelta(days=random.randint(0, 300))
         end = start + timedelta(days=random.randint(1, 5))
         evt = frappe.get_doc({
-            "doctype": "Events",
+            "doctype": "PF Events",
             "event_name": EVENT_NAMES[i % len(EVENT_NAMES)] + (f" #{i+1}" if i >= len(EVENT_NAMES) else ""),
             "start_date": start.isoformat(),
             "end_date": end.isoformat(),
@@ -127,7 +127,7 @@ def _generate_families(count=50):
                 break
 
         family = frappe.get_doc({
-            "doctype": "Families",
+            "doctype": "PF Families",
             "first_name": fn,
             "last_name": ln,
             "email": f"{fn.lower()}.{ln.lower().replace(' ', '')}@example.com",
@@ -157,7 +157,7 @@ def _generate_people(families, count=150):
 
         dob = date(random.randint(1960, 2010), random.randint(1, 12), random.randint(1, 28))
         person = frappe.get_doc({
-            "doctype": "People",
+            "doctype": "PF People",
             "first_name": fn,
             "last_name": ln,
             "family_id": random.choice(families),
@@ -187,7 +187,7 @@ def _generate_enrollments(events, people, min_per_event=30, max_per_event=50):
 
             enroll_date = date(2026, 1, 1) + timedelta(days=random.randint(0, 180))
             enrollment = frappe.get_doc({
-                "doctype": "Enrollments",
+                "doctype": "PF Enrollments",
                 "event_id": event,
                 "person_id": person,
                 "enrollment_date": enroll_date.isoformat(),
@@ -224,7 +224,7 @@ def generate_sample_data():
 
 def delete_sample_data():
     """Delete all demo app sample data."""
-    for doctype in ["Enrollments", "People", "Families", "Events"]:
+    for doctype in ["PF Enrollments", "PF People", "PF Families", "PF Events"]:
         existing = frappe.get_all(doctype, pluck="name")
         for name in existing:
             frappe.delete_doc(doctype, name, force=True)

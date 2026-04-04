@@ -1,5 +1,5 @@
 import frappe
 from frappe.model.document import Document
 
-class Families(Document):
+class PF_People(Document):
 	pass

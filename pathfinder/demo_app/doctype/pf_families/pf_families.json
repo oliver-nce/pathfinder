@@ -1,45 +1,53 @@
 {
   "actions": [],
-  "autoname": "format:PF-EVT-{YYYY}-{####}",
+  "autoname": "format:PF-FAM-{YYYY}-{####}",
   "creation": "2026-04-04 12:00:00.000000",
   "doctype": "DocType",
   "engine": "InnoDB",
   "field_order": [
-    "event_name",
-    "start_date",
-    "end_date",
-    "location"
+    "first_name",
+    "last_name",
+    "email",
+    "phone",
+    "zip_code"
   ],
   "fields": [
     {
-      "fieldname": "event_name",
+      "fieldname": "first_name",
       "fieldtype": "Data",
-      "in_list_view": 1,
-      "in_standard_filter": 1,
-      "label": "Event Name",
-      "reqd": 1
+      "label": "First Name",
+      "reqd": 1,
+      "in_list_view": 1
     },
     {
-      "fieldname": "start_date",
-      "fieldtype": "Date",
-      "label": "Start Date"
-    },
-    {
-      "fieldname": "end_date",
-      "fieldtype": "Date",
-      "label": "End Date"
-    },
-    {
-      "fieldname": "location",
+      "fieldname": "last_name",
       "fieldtype": "Data",
-      "label": "Location"
+      "label": "Last Name",
+      "reqd": 1,
+      "in_list_view": 1
+    },
+    {
+      "fieldname": "email",
+      "fieldtype": "Data",
+      "label": "Email",
+      "options": "Email"
+    },
+    {
+      "fieldname": "phone",
+      "fieldtype": "Data",
+      "label": "Phone"
+    },
+    {
+      "fieldname": "zip_code",
+      "fieldtype": "Data",
+      "label": "ZIP Code"
     }
   ],
   "links": [],
   "modified": "2026-04-04 12:00:00.000000",
   "modified_by": "Administrator",
   "module": "demo_app",
-  "name": "Events",
+  "name": "PF Families",
   "naming_rule": "Expression",
   "owner": "Administrator",
   "permissions": [
@@ -63,6 +71,6 @@
   "sort_field": "creation",
   "sort_order": "DESC",
   "states": [],
-  "title_field": "event_name",
+  "title_field": "last_name",
   "track_changes": 0
 }

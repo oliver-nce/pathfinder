@@ -34,7 +34,7 @@
       "in_list_view": 1,
       "in_standard_filter": 1,
       "label": "Family",
-      "options": "Families",
+      "options": "PF Families",
       "reqd": 1
     },
     {
@@ -53,7 +53,7 @@
   "modified": "2026-04-04 12:00:00.000000",
   "modified_by": "Administrator",
   "module": "demo_app",
-  "name": "People",
+  "name": "PF People",
   "naming_rule": "Expression",
   "owner": "Administrator",
   "permissions": [
