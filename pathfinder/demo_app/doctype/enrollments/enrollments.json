@@ -1,31 +1,46 @@
 {
-  "naming": "autoincrement",
+  "actions": [],
   "autoname": "format:PF-ENR-{YYYY}-{#####}",
+  "creation": "2026-04-04 12:00:00.000000",
+  "doctype": "DocType",
+  "engine": "InnoDB",
+  "field_order": [
+    "event_id",
+    "person_id",
+    "enrollment_date",
+    "report",
+    "about_pathfinder_section",
+    "about_description",
+    "instructions_section",
+    "instructions_html",
+    "integration_section",
+    "integration_placeholder"
+  ],
   "fields": [
     {
       "fieldname": "event_id",
       "fieldtype": "Link",
+      "in_list_view": 1,
+      "in_standard_filter": 1,
       "label": "Event",
       "options": "Events",
-      "reqd": 1,
-      "in_list_view": 1,
-      "in_standard_filter": 1
+      "reqd": 1
     },
     {
       "fieldname": "person_id",
       "fieldtype": "Link",
+      "in_list_view": 1,
+      "in_standard_filter": 1,
       "label": "Person",
       "options": "People",
-      "reqd": 1,
-      "in_list_view": 1,
-      "in_standard_filter": 1
+      "reqd": 1
     },
     {
       "fieldname": "enrollment_date",
       "fieldtype": "Date",
+      "in_list_view": 1,
       "label": "Enrollment Date",
-      "reqd": 1,
-      "in_list_view": 1
+      "reqd": 1
     },
     {
       "fieldname": "report",
@@ -42,22 +57,7 @@
       "fieldname": "about_description",
       "fieldtype": "HTML",
       "label": "About Description",
-      "options": "<div style='padding: 8px 0;'>"
-        "<h4>What is Pathfinder?</h4>"
-        "<p>Pathfinder is a visual field-path navigator for Frappe that lets you:</p>"
-        "<ul>"
-          "<li>Browse DocType link chains visually (e.g. Enrollment → Person → Family → last_name)</li>"
-          "<li>Create <strong>virtual fields</strong> — dot-notation paths that resolve values across linked documents at runtime</li>"
-          "<li>Generate <strong>Jinja tags</strong> for email/SMS/text templates (e.g. <code>{{ doc.person.family_id.last_name }}</code>)</li>"
-          "<li>Generate <strong>Frappe paths</strong> for programmatic use in custom code</li>"
-        "</ul>"
-        "<p>The path <code>person.family_id.last_name</code> on an Enrollment document resolves by following:</p>"
-        "<ol>"
-          "<li><code>person</code> → Link to People doc</li>"
-          "<li><code>family_id</code> → Link to Families doc</li>"
-          "<li><code>last_name</code> → terminal value</li>"
-        "</ol>"
-        "</div>"
+      "options": "<div style='padding: 8px 0;'><h4>What is Pathfinder?</h4><p>Pathfinder is a visual field-path navigator for Frappe that lets you:</p><ul><li>Browse DocType link chains visually (e.g. Enrollment → Person → Family → last_name)</li><li>Create <strong>virtual fields</strong> — dot-notation paths that resolve values across linked documents at runtime</li><li>Generate <strong>Jinja tags</strong> for email/SMS/text templates (e.g. <code>{{ doc.person_id.family_id.last_name }}</code>)</li><li>Generate <strong>Frappe paths</strong> for programmatic use in custom code</li></ul></div>"
     },
     {
       "fieldname": "instructions_section",
@@ -78,30 +78,37 @@
       "fieldname": "integration_placeholder",
       "fieldtype": "HTML",
       "label": "Integration Placeholder",
-      "options": "<div style='padding: 16px; text-align: center;'>"
-        "<p style='color: var(--gray-500); margin-bottom: 12px;'>Use the Pathfinder button in the form header to select a field path.</p>"
-        "<p style='color: var(--gray-500); font-size: 12px;'>Opens the Pathfinder popup with 3 options:</p>"
-        "<ul style='text-align: left; display: inline-block; color: var(--gray-600);'>"
-          "<li><strong>Copy Jinja Tag</strong> — for templates</li>"
-          "<li><strong>Create Virtual Field</strong> — reusable definition</li>"
-          "<li><strong>Copy Frappe Path</strong> — for custom code</li>"
-        "</ul>"
-        "</div>"
+      "options": "<div style='padding: 16px; text-align: center;'><p style='color: var(--gray-500); margin-bottom: 12px;'>Use the Pathfinder button in the form header to select a field path.</p><p style='color: var(--gray-500); font-size: 12px;'>Opens the Pathfinder popup with 3 options:</p><ul style='text-align: left; display: inline-block; color: var(--gray-600);'><li><strong>Copy Jinja Tag</strong> — for templates</li><li><strong>Create Virtual Field</strong> — reusable definition</li><li><strong>Copy Frappe Path</strong> — for custom code</li></ul></div>"
     }
   ],
+  "links": [],
+  "modified": "2026-04-04 12:00:00.000000",
+  "modified_by": "Administrator",
+  "module": "demo_app",
+  "name": "Enrollments",
+  "naming_rule": "Expression",
+  "owner": "Administrator",
   "permissions": [
     {
-      "role": "System Manager",
-      "read": 1,
-      "write": 1,
       "create": 1,
-      "delete": 1
+      "delete": 1,
+      "email": 1,
+      "export": 1,
+      "print": 1,
+      "read": 1,
+      "report": 1,
+      "role": "System Manager",
+      "share": 1,
+      "write": 1
     },
     {
-      "role": "All",
-      "read": 1
+      "read": 1,
+      "role": "All"
     }
   ],
   "sort_field": "creation",
-  "sort_order": "DESC"
+  "sort_order": "DESC",
+  "states": [],
+  "title_field": "person_id",
+  "track_changes": 0
 }
