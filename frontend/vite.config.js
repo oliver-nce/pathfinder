@@ -8,10 +8,16 @@ export default defineConfig({
     lib: {
       entry: path.resolve(__dirname, "src/main.js"),
       name: "Pathfinder",
+      fileName: () => "pathfinder.bundle.js",
       formats: ["es"],
     },
     outDir: "../pathfinder/public/js",
     emptyOutDir: false,
+    rollupOptions: {
+      // frappe-ui references ~icons/* via unplugin-icons — externalize so
+      // the build doesn't fail if the icon plugin isn't installed
+      external: [/^~icons\/.*/],
+    },
   },
   resolve: {
     alias: {

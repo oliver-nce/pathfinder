@@ -4,8 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "vite",
-    "build": "vite build --base=/assets/pathfinder/js/ && yarn copy-html-entry",
-    "copy-html-entry": "cp ../pathfinder/public/js/pathfinder.bundle.html ../pathfinder/www/pathfinder.html"
+    "build": "vite build"
   },
   "dependencies": {
     "vue": "^3.3.0",
