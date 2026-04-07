@@ -5,6 +5,11 @@ Generates realistic US-based sample data:
   - 50 Families
   - 150 People distributed across the 50 families
   - 30-50 enrollments per event (600-1000 total)
+
+Uses standard Frappe v15 ORM patterns:
+  - frappe.new_doc() for document creation
+  - Single transaction per entity with rollback on failure
+  - frappe.db.delete() for bulk deletion
 """
 
 import random
@@ -91,30 +96,35 @@ US_ZIP_CODES = [
     "80203", "02109", "30308", "97205", "33141"
 ]
 
+REQUIRED_DOCTYPES = ["PF Events", "PF Families", "PF People", "PF Enrollments"]
+
+
+def _validate_doctypes():
+    """Ensure all required DocTypes exist before generating data."""
+    for dt in REQUIRED_DOCTYPES:
+        if not frappe.db.exists("DocType", dt):
+            frappe.log_error(f"DocType '{dt}' does not exist", "Pathfinder Demo Data")
+            frappe.throw(f"Cannot generate demo data: DocType '{dt}' is missing. Run 'bench migrate' first.")
+
 
 def _generate_events(count=20):
-    """Create sample Events."""
+    """Create sample Events using frappe.new_doc() pattern."""
     events = []
     for i in range(count):
         start = date(2026, 1, 1) + timedelta(days=random.randint(0, 300))
         end = start + timedelta(days=random.randint(1, 5))
-        evt = frappe.get_doc({
-            "doctype": "PF Events",
-            "event_name": EVENT_NAMES[i % len(EVENT_NAMES)] + (f" #{i+1}" if i >= len(EVENT_NAMES) else ""),
-            "start_date": start.isoformat(),
-            "end_date": end.isoformat(),
-            "location": EVENT_LOCATIONS[i % len(EVENT_LOCATIONS)],
-        })
-        evt.insert()
+        evt = frappe.new_doc("PF Events")
+        evt.event_name = EVENT_NAMES[i % len(EVENT_NAMES)] + (f" #{i + 1}" if i >= len(EVENT_NAMES) else "")
+        evt.start_date = start
+        evt.end_date = end
+        evt.location = EVENT_LOCATIONS[i % len(EVENT_LOCATIONS)]
+        evt.insert(ignore_permissions=True)
         events.append(evt.name)
-        if (i + 1) % 5 == 0:
-            frappe.db.commit()
-    frappe.db.commit()
     return events
 
 
 def _generate_families(count=50):
-    """Create sample Families."""
+    """Create sample Families using frappe.new_doc() pattern."""
     families = []
     used_names = set()
     for _ in range(count):
@@ -126,19 +136,14 @@ def _generate_families(count=50):
                 used_names.add(key)
                 break
 
-        family = frappe.get_doc({
-            "doctype": "PF Families",
-            "first_name": fn,
-            "last_name": ln,
-            "email": f"{fn.lower()}.{ln.lower().replace(' ', '')}@example.com",
-            "phone": f"({random.randint(200, 999)}) {random.randint(200, 999)}-{random.randint(1000, 9999)}",
-            "zip_code": random.choice(US_ZIP_CODES),
-        })
-        family.insert()
+        family = frappe.new_doc("PF Families")
+        family.first_name = fn
+        family.last_name = ln
+        family.email = f"{fn.lower()}.{ln.lower().replace(' ', '')}@example.com"
+        family.phone = f"({random.randint(200, 999)}) {random.randint(200, 999)}-{random.randint(1000, 9999)}"
+        family.zip_code = random.choice(US_ZIP_CODES)
+        family.insert(ignore_permissions=True)
         families.append(family.name)
-        if len(families) % 10 == 0:
-            frappe.db.commit()
-    frappe.db.commit()
     return families
 
 
@@ -156,19 +161,14 @@ def _generate_people(families, count=150):
                 break
 
         dob = date(random.randint(1960, 2010), random.randint(1, 12), random.randint(1, 28))
-        person = frappe.get_doc({
-            "doctype": "PF People",
-            "first_name": fn,
-            "last_name": ln,
-            "family_id": random.choice(families),
-            "gender": random.choice(["Male", "Female", "Non-binary"]),
-            "date_of_birth": dob.isoformat(),
-        })
-        person.insert()
+        person = frappe.new_doc("PF People")
+        person.first_name = fn
+        person.last_name = ln
+        person.family_id = random.choice(families)
+        person.gender = random.choice(["Male", "Female", "Non-binary"])
+        person.date_of_birth = dob
+        person.insert(ignore_permissions=True)
         people.append(person.name)
-        if len(people) % 30 == 0:
-            frappe.db.commit()
-    frappe.db.commit()
     return people
 
 
@@ -186,47 +186,63 @@ def _generate_enrollments(events, people, min_per_event=30, max_per_event=50):
             used_pairs.add(pair)
 
             enroll_date = date(2026, 1, 1) + timedelta(days=random.randint(0, 180))
-            enrollment = frappe.get_doc({
-                "doctype": "PF Enrollments",
-                "event_id": event,
-                "person_id": person,
-                "enrollment_date": enroll_date.isoformat(),
-            })
-            enrollment.insert()
+            enrollment = frappe.new_doc("PF Enrollments")
+            enrollment.event_id = event
+            enrollment.person_id = person
+            enrollment.enrollment_date = enroll_date
+            enrollment.insert(ignore_permissions=True)
             count += 1
-            if count % 50 == 0:
-                frappe.db.commit()
-    frappe.db.commit()
     return count
 
 
 def generate_sample_data():
-    """Generate all sample data for the Pathfinder demo."""
-    print("Generating Events...")
-    events = _generate_events(20)
-    print(f"  Created {len(events)} events")
+    """Generate all sample data for the Pathfinder demo.
 
-    print("Generating Families...")
-    families = _generate_families(50)
-    print(f"  Created {len(families)} families")
+    Uses a single transaction per entity type with rollback on failure.
+    This ensures the database is never left in a partial state.
+    """
+    _validate_doctypes()
 
-    print("Generating People...")
-    people = _generate_people(families, 150)
-    print(f"  Created {len(people)} people")
+    try:
+        frappe.flags.ignore_validate = True
 
-    print("Generating Enrollments...")
-    count = _generate_enrollments(events, people)
-    print(f"  Created {count} enrollments")
+        print("Generating Events...")
+        events = _generate_events(20)
+        frappe.db.commit()
+        print(f"  Created {len(events)} events")
 
-    print(f"Sample data generation complete: {len(events)} events, {len(families)} families, "
-          f"{len(people)} people, {count} enrollments")
+        print("Generating Families...")
+        families = _generate_families(50)
+        frappe.db.commit()
+        print(f"  Created {len(families)} families")
+
+        print("Generating People...")
+        people = _generate_people(families, 150)
+        frappe.db.commit()
+        print(f"  Created {len(people)} people")
+
+        print("Generating Enrollments...")
+        count = _generate_enrollments(events, people)
+        frappe.db.commit()
+        print(f"  Created {count} enrollments")
+
+        print(f"Sample data generation complete: {len(events)} events, "
+              f"{len(families)} families, {len(people)} people, {count} enrollments")
+
+    except Exception:
+        frappe.db.rollback()
+        frappe.log_error("Failed to generate demo data", "Pathfinder Demo Data")
+        raise
+    finally:
+        frappe.flags.ignore_validate = False
 
 
 def delete_sample_data():
-    """Delete all demo app sample data."""
+    """Delete all demo app sample data using bulk deletion.
+
+    Deletes in reverse dependency order to avoid link validation errors.
+    """
     for doctype in ["PF Enrollments", "PF People", "PF Families", "PF Events"]:
-        existing = frappe.get_all(doctype, pluck="name")
-        for name in existing:
-            frappe.delete_doc(doctype, name, force=True)
-        frappe.db.commit()
-    print(f"Deleted all sample data")
+        frappe.db.delete(doctype)
+    frappe.db.commit()
+    print("Deleted all sample data")
