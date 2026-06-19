@@ -37,13 +37,14 @@
     })
 
     dialog.show()
-    renderNavigator(dialog, columns)
+    renderNavigator(dialog, columns, options)
   }
 
   /**
    * Render the column-based navigator into the dialog HTML field.
    */
-  function renderNavigator(dialog, columns) {
+  function renderNavigator(dialog, columns, options) {
+    options = options || {}
     var wrapper = dialog.fields_dict.navigator.$wrapper
     wrapper.empty()
 
@@ -64,7 +65,7 @@
         columns[idx].selectedField = null
         columns[idx].selectedLabel = null
         columns = columns.slice(0, idx + 1)
-        renderNavigator(dialog, columns)
+        renderNavigator(dialog, columns, options)
       })
     })
 
@@ -93,14 +94,14 @@
     var scrollArea = $('<div style="display: flex; overflow-x: auto; gap: 1px; padding: 8px 0; min-height: 200px; max-height: 260px; border-top: 1px solid var(--gray-100);"></div>').appendTo(container)
 
     columns.forEach(function (col, colIdx) {
-      renderColumn(scrollArea, dialog, columns, col, colIdx)
+      renderColumn(scrollArea, dialog, columns, col, colIdx, options)
     })
   }
 
   /**
    * Render a single column of fields.
    */
-  function renderColumn(container, dialog, columns, col, colIdx) {
+  function renderColumn(container, dialog, columns, col, colIdx, options) {
     var panel = $('<div style="min-width: 200px; max-width: 240px; flex-shrink: 0; border-right: 1px solid var(--gray-200);"></div>').appendTo(container)
 
     var header = $('<div style="padding: 8px 10px; font-size: 13px; font-weight: 600; color: var(--gray-700); background: var(--gray-50); border-bottom: 1px solid var(--gray-200);">' + col.doctype + '</div>').appendTo(panel)
@@ -137,13 +138,13 @@
 
             if (isDrillable && field.options) {
               columns.push({ doctype: field.options, selectedField: null, selectedLabel: null })
-              renderNavigator(dialog, columns)
+              renderNavigator(dialog, columns, options)
               // Scroll to new column
               setTimeout(function () {
                 container[0].scrollLeft = container[0].scrollWidth
               }, 50)
             } else {
-              renderNavigator(dialog, columns)
+              renderNavigator(dialog, columns, options)
             }
           })
         })
