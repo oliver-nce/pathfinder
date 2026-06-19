@@ -78,16 +78,6 @@
       var pathBar = $('<div style="display: flex; align-items: center; gap: 8px; margin: 8px 12px; padding: 6px 10px; background: var(--blue-50); border: 1px solid var(--blue-200); border-radius: 6px; font-size: 12px;"></div>').appendTo(container)
       pathBar.append('<i class="fa fa-link" style="color: var(--blue-500);"></i>')
       pathBar.append('<code style="flex: 1; font-family: monospace; color: var(--blue-700);">' + pathStr + '</code>')
-      var confirmBtn = $('<button class="btn btn-xs btn-primary" style="padding: 2px 8px;">' +
-        '<i class="fa fa-check" style="margin-right: 4px;"></i>Confirm</button>').appendTo(pathBar)
-      confirmBtn.on("click", function () {
-        dialog.hide()
-        if (options.onConfirm) {
-          options.onConfirm(pathStr)
-        } else {
-          showOutputDialog(pathStr, options)
-        }
-      })
     }
 
     // Columns area
@@ -139,12 +129,19 @@
             if (isDrillable && field.options) {
               columns.push({ doctype: field.options, selectedField: null, selectedLabel: null })
               renderNavigator(dialog, columns, options)
-              // Scroll to new column
               setTimeout(function () {
                 container[0].scrollLeft = container[0].scrollWidth
               }, 50)
             } else {
-              renderNavigator(dialog, columns, options)
+              var pathParts = []
+              columns.forEach(function (c) { if (c.selectedField) pathParts.push(c.selectedField) })
+              var pathStr = pathParts.join(".")
+              dialog.hide()
+              if (options.onConfirm) {
+                options.onConfirm(pathStr)
+              } else {
+                showOutputDialog(pathStr, options)
+              }
             }
           })
         })

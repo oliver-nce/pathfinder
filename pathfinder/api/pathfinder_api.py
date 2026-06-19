@@ -236,7 +236,78 @@ def _build_jinja_tag(doctype, path):
 
 
 # ---------------------------------------------------------------------------
-# 7. create_virtual_field
+# 7. build_sql_expression
+# ---------------------------------------------------------------------------
+@frappe.whitelist()
+def build_sql_expression(root_doctype: str, path: str, style: str) -> str:
+    """Build a SQL expression for a given root DocType + dot-notation path.
+
+    Walks the Link-field chain and produces a ready-to-paste SQL string.
+
+    style:
+        "report"        — correlated subquery referencing the root table;
+                          paste into the SELECT clause of a Frappe SQL Report.
+                          e.g. (SELECT first_name FROM tabContact
+                                WHERE name = `tabSales Order`.contact)
+
+        "parameterized" — standalone query with %(name)s placeholder for the
+                          root record PK; use in frappe.db.sql() or a Script
+                          Report filter.
+                          e.g. SELECT first_name FROM tabContact
+                               WHERE name = (SELECT contact FROM `tabSales Order`
+                                             WHERE name = %(name)s)
+    """
+    frappe.has_permission(root_doctype, throw=True)
+
+    parts = [p.strip() for p in path.split(".") if p.strip()]
+    if not parts:
+        frappe.throw(_("Empty path"))
+
+    def tab(dt: str) -> str:
+        if " " in dt or "-" in dt:
+            return f"`tab{dt}`"
+        return f"tab{dt}"
+
+    # Walk chain: [(field_name, source_doctype, target_doctype), ...]
+    chain = []
+    current_doctype = root_doctype
+
+    for field_name in parts[:-1]:
+        meta = frappe.get_meta(current_doctype)
+        field = meta.get_field(field_name)
+        if not field:
+            frappe.throw(_(f"Field '{field_name}' not found in '{current_doctype}'"))
+        if field.fieldtype != "Link" or not field.options:
+            frappe.throw(_(f"Field '{field_name}' in '{current_doctype}' is not a Link field"))
+        target_doctype = field.options
+        chain.append((field_name, current_doctype, target_doctype))
+        current_doctype = target_doctype
+
+    final_field = parts[-1]
+    final_doctype = current_doctype
+
+    if not chain:
+        # Direct field on root — no traversal
+        if style == "report":
+            return f"{tab(root_doctype)}.{final_field}"
+        return f"SELECT {final_field} FROM {tab(root_doctype)} WHERE name = %(name)s"
+
+    if style == "report":
+        # Correlated subquery: inner condition anchors to root table column
+        inner = f"{tab(chain[0][1])}.{chain[0][0]}"
+        for field_name, src, _tgt in chain[1:]:
+            inner = f"(SELECT {field_name} FROM {tab(src)} WHERE name = {inner})"
+        return f"(SELECT {final_field} FROM {tab(final_doctype)} WHERE name = {inner})"
+
+    # parameterized
+    inner = f"(SELECT {chain[0][0]} FROM {tab(chain[0][1])} WHERE name = %(name)s)"
+    for field_name, src, _tgt in chain[1:]:
+        inner = f"(SELECT {field_name} FROM {tab(src)} WHERE name = {inner})"
+    return f"SELECT {final_field} FROM {tab(final_doctype)} WHERE name = {inner}"
+
+
+# ---------------------------------------------------------------------------
+# 8. create_virtual_field
 # ---------------------------------------------------------------------------
 @frappe.whitelist()
 def create_virtual_field(
