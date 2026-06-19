@@ -4,6 +4,10 @@ import vue from "@vitejs/plugin-vue";
 
 export default defineConfig({
   plugins: [vue()],
+  define: {
+    // Vue and dependencies reference process.env.NODE_ENV; Desk has no Node process global.
+    "process.env.NODE_ENV": JSON.stringify("production"),
+  },
   build: {
     lib: {
       entry: path.resolve(__dirname, "src/main.js"),

@@ -191,7 +191,7 @@
       "purpose": "Vite build config — builds frontend into pathfinder/public/js/pathfinder.bundle.js",
       "exports": [],
       "depends_on": [],
-      "sections": ["Vue plugin", "Lib build config", "Path alias resolution"]
+      "sections": ["Vue plugin", "Lib build config", "process.env.NODE_ENV define for Desk browser", "Path alias resolution"]
     },
     "frontend/package.json": {
       "purpose": "NPM dependencies — Vue 3, frappe-ui, Vite build tooling",
