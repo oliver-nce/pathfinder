@@ -177,10 +177,12 @@
   }
 
   function addFetchJinjaTagButton(frm) {
-    if (!frm || frm._pathfinder_fetch_jinja_added) return
+    if (!frm || !frm.page || frm._pathfinder_fetch_jinja_added) return
     if (SKIP_FETCH_JINJA_DOCTYPES[frm.doctype]) return
 
-    frm.add_custom_button(__("Fetch Jinja Tag"), function () {
+    // page.add_button → top toolbar (same row as Save / custom header buttons).
+    // add_custom_button → inner toolbar below the title (easy to miss).
+    frm.page.add_button(__("Fetch Jinja Tag"), function () {
       openFetchJinjaTag(frm)
     })
     frm._pathfinder_fetch_jinja_added = true
