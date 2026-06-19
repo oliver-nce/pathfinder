@@ -80,6 +80,112 @@
     })
   }
 
+  // -------------------------------------------------------------------------
+  // Fetch Jinja Tag — global form button (clipboard workflow)
+  // -------------------------------------------------------------------------
+
+  /** Map form DocType → doc field holding the Pathfinder root DocType. */
+  var ROOT_DOCTYPE_FIELD = {
+    "Print Format": "doc_type",
+    "Notification": "document_type",
+  }
+
+  /** Forms with no reference field — prompt user to pick a DocType. */
+  var ROOT_DOCTYPE_PICKER = { "Email Template": 1 }
+
+  /** Forms that already have a dedicated Pathfinder toolbar button. */
+  var SKIP_FETCH_JINJA_DOCTYPES = { "Customize Form": 1 }
+
+  function getPathfinderRootDoctype(frm) {
+    if (!frm || !frm.doctype) return null
+
+    var fieldname = ROOT_DOCTYPE_FIELD[frm.doctype]
+    if (fieldname && frm.doc && frm.doc[fieldname]) {
+      return frm.doc[fieldname]
+    }
+
+    if (ROOT_DOCTYPE_PICKER[frm.doctype]) {
+      return null
+    }
+
+    return frm.doctype
+  }
+
+  function promptForRootDoctype(callback) {
+    var dialog = new frappe.ui.Dialog({
+      title: __("Pathfinder — Select DocType"),
+      fields: [
+        {
+          fieldtype: "Link",
+          fieldname: "root_doctype",
+          label: __("DocType"),
+          options: "DocType",
+          reqd: 1,
+          get_query: function () {
+            return { filters: { istable: 0 } }
+          },
+        },
+      ],
+      primary_action_label: __("Open Pathfinder"),
+      primary_action: function (values) {
+        dialog.hide()
+        callback(values.root_doctype)
+      },
+    })
+    dialog.show()
+  }
+
+  function launchPathfinderPopup(rootDoctype) {
+    window.openPathfinderPopup(rootDoctype, {
+      onJinjaTagSelected: function () {
+        frappe.show_alert(
+          { message: __("Jinja tag copied to clipboard"), indicator: "green" },
+          3
+        )
+      },
+    })
+  }
+
+  function openFetchJinjaTag(frm) {
+    if (typeof window.openPathfinderPopup !== "function") {
+      frappe.msgprint(__("Pathfinder is not available. Run `bench build --app pathfinder`."))
+      return
+    }
+
+    if (ROOT_DOCTYPE_PICKER[frm.doctype]) {
+      promptForRootDoctype(launchPathfinderPopup)
+      return
+    }
+
+    var rootDoctype = getPathfinderRootDoctype(frm)
+    if (!rootDoctype) {
+      frappe.msgprint(__("Could not determine a DocType for Pathfinder."))
+      return
+    }
+
+    var fieldname = ROOT_DOCTYPE_FIELD[frm.doctype]
+    if (fieldname && frm.doc && !frm.doc[fieldname]) {
+      frappe.msgprint(
+        __("Set {0} on this form first, then open Pathfinder.", [
+          frappe.meta.get_label(frm.doctype, fieldname) || fieldname,
+        ])
+      )
+      return
+    }
+
+    launchPathfinderPopup(rootDoctype)
+  }
+
+  function addFetchJinjaTagButton(frm) {
+    if (!frm || frm._pathfinder_fetch_jinja_added) return
+    if (SKIP_FETCH_JINJA_DOCTYPES[frm.doctype]) return
+
+    frm.add_custom_button(__("Fetch Jinja Tag"), function () {
+      openFetchJinjaTag(frm)
+    })
+    frm._pathfinder_fetch_jinja_added = true
+  }
+
   // Hook into form refresh — runs after the document is loaded
   // We use frappe.ui.form.on("*") to apply to all doctypes
   frappe.ui.form.on("*", {
@@ -88,6 +194,7 @@
       setTimeout(function () {
         renderVirtualFields(frm)
         addManageButton(frm)
+        addFetchJinjaTagButton(frm)
       }, 100)
     },
   })

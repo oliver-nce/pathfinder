@@ -32,7 +32,6 @@ app_logo_url = "/assets/pathfinder/images/logo.png"
 app_include_js = [
     "/assets/pathfinder/js/pathfinder.bundle.js",
     "/assets/pathfinder/js/pathfinder_popup.js",
-    "/assets/pathfinder/js/pathfinder_jinja_button.js",
     "/assets/pathfinder/js/pathfinder_desk.js",
     "/assets/pathfinder/js/pathfinder_control.js",
     "/assets/pathfinder/js/enrollment_form.js",
