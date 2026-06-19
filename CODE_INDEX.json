@@ -19,6 +19,7 @@
       "PathfinderPopup (Phase 3) — Desk modal with 3-option output: copy Jinja tag, create virtual field, copy Frappe path",
       "window.openPathfinderPopup(rootDoctype, options?) — global API for consuming apps to invoke popup programmatically",
       "pathfinder_desk.js auto-injects Pathfinder button into Customize Form View toolbar",
+      "pathfinder_jinja_button.js adds Fetch Jinja Tag button to every Desk form (clipboard workflow)",
       "pathfinder_control.js renders virtual field values on any DocType form dashboard"
     ]
   },
@@ -27,7 +28,7 @@
     "hooks.py": {
       "purpose": "App config: metadata, 3 frontend JS bundles (Vue library + desk control + desk API), doc_events onload hook for virtual field injection",
       "exports": ["app_name", "app_include_js", "doc_events"],
-      "depends_on": ["api/pathfinder_api.py", "pathfinder/public/js/pathfinder_control.js", "pathfinder/public/js/pathfinder_desk.js"],
+      "depends_on": ["api/pathfinder_api.py", "pathfinder/public/js/pathfinder_control.js", "pathfinder/public/js/pathfinder_desk.js", "pathfinder/public/js/pathfinder_jinja_button.js"],
       "sections": ["App Metadata", "Site-wide JS Includes (3 bundles)", "Document Event Hook"]
     },
     "install.py": {
@@ -215,6 +216,12 @@
       "exports": ["window.openPathfinderPopup", "window.closePathfinderPopup"],
       "depends_on": ["frontend/src/desk/PathfinderPopup.vue", "window.Pathfinder (from bundle)"],
       "sections": ["openPathfinderPopup global function", "createPopupApp (Vue app factory)", "injectCustomizeFormButton (route watcher + DOM injection)", "Clipboard copy utilities (clipboard API + fallback)"]
+    },
+    "pathfinder/public/js/pathfinder_jinja_button.js": {
+      "purpose": "Global Desk form button — Fetch Jinja Tag on every form when pathfinder is installed. Opens pathfinder_popup with root DocType (with overrides for Email Template, Print Format, Notification). Tag copied to clipboard; user pastes manually. Skips Customize Form (dedicated button already exists).",
+      "exports": [],
+      "depends_on": ["pathfinder/public/js/pathfinder_popup.js"],
+      "sections": ["getPathfinderRootDoctype (template doctype overrides)", "openFetchJinjaTag", "addFetchJinjaTagButton", "frappe.ui.form.on('*', {refresh}) hook"]
     },
     "pathfinder/public/js/pathfinder_control.js": {
       "purpose": "Phase 3 — Renders resolved virtual field values on any DocType form. Hooks into frappe.ui.form.on('*') refresh event. Reads doc._virtual_fields (set by server-side onload hook), renders as dashboard section. Also adds 'Virtual Fields' inner button linking to /app/pathfinder.",
