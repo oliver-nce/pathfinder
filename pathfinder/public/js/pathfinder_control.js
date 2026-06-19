@@ -190,11 +190,15 @@
   // We use frappe.ui.form.on("*") to apply to all doctypes
   frappe.ui.form.on("*", {
     refresh: function (frm) {
-      // Defer to ensure _virtual_fields is attached from the server response
+      // Add button synchronously so Email Template (and others) don't wipe it
+      // in a post-refresh toolbar reset before our deferred call runs.
+      addFetchJinjaTagButton(frm)
+
+      // Virtual fields and manage button can still defer — they touch the
+      // dashboard which needs the server response attached first.
       setTimeout(function () {
         renderVirtualFields(frm)
         addManageButton(frm)
-        addFetchJinjaTagButton(frm)
       }, 100)
     },
   })
