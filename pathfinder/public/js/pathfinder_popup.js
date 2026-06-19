@@ -81,7 +81,11 @@
         '<i class="fa fa-check" style="margin-right: 4px;"></i>Confirm</button>').appendTo(pathBar)
       confirmBtn.on("click", function () {
         dialog.hide()
-        showOutputDialog(pathStr, options)
+        if (options.onConfirm) {
+          options.onConfirm(pathStr)
+        } else {
+          showOutputDialog(pathStr, options)
+        }
       })
     }
 

@@ -50,10 +50,27 @@
     window.openPathfinderPopup(root, onTag)
   }
 
+  function copyTag(path) {
+    var tag = "{{ doc." + path + " }}"
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(tag).catch(function () { fallbackCopy(tag) })
+    } else {
+      fallbackCopy(tag)
+    }
+    frappe.show_alert({ message: __("Copied: ") + tag, indicator: "green" }, 4)
+  }
+
+  function fallbackCopy(text) {
+    var ta = document.createElement("textarea")
+    ta.value = text
+    document.body.appendChild(ta)
+    ta.select()
+    document.execCommand("copy")
+    document.body.removeChild(ta)
+  }
+
   var onTag = {
-    onJinjaTagSelected: function () {
-      frappe.show_alert({ message: __("Jinja tag copied to clipboard"), indicator: "green" }, 3)
-    },
+    onConfirm: function (path) { copyTag(path) },
   }
 
   function injectButton() {
