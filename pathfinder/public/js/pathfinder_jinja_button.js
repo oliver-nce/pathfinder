@@ -26,17 +26,16 @@
 
   var BUTTON_LABEL = __("Pathfinder")
 
-  var OUTPUT_ROWS = [
-    { key: "jinja", label: __("Jinja Tag") },
-    { key: "path", label: __("Frappe Path") },
-    { key: "sql_report", label: __("SQL — Report") },
-    { key: "sql_param", label: __("SQL — Parameterized") },
-  ]
-
   var SQL_ROWS = [
     { key: "sql_report", label: __("SQL — Report") },
     { key: "sql_param", label: __("SQL — Parameterized") },
   ]
+
+  var COPY_ICON_SVG =
+    '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
+      '<rect x="5" y="5" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2"/>' +
+      '<rect x="2" y="2" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2" fill="var(--bg-color, #fff)"/>' +
+    "</svg>"
 
   function getRootDoctype(frm) {
     var f = ROOT_FIELD[frm.doctype]
@@ -119,26 +118,47 @@
     })
   }
 
-  function appendTaggedCopyRow(container, path, value, copyLabel) {
-    var block = $('<div class="pf-output-tagged-row"></div>')
-    var header = $('<div class="pf-output-tagged-header"></div>')
-    header.append(
-      '<code class="pf-output-tagged-path">' + frappe.utils.escape_html(path) + "</code>"
+  function buildCopyCell(text, copyLabel) {
+    var td = $('<td class="pf-output-cell"></td>')
+    var inner = $('<div class="pf-output-cell-inner"></div>')
+    inner.append(
+      '<code class="pf-output-cell-text">' + frappe.utils.escape_html(text) + "</code>"
     )
 
-    var copyBtn = $('<button type="button" class="btn btn-xs btn-default">' + __("Copy") + "</button>")
-    copyBtn.on("click", function () {
-      copyToClipboard(value, copyLabel)
+    var btn = $(
+      '<button type="button" class="pf-copy-cell-btn" title="' + frappe.utils.escape_html(__("Copy")) + '">' +
+        COPY_ICON_SVG +
+      "</button>"
+    )
+    btn.on("click", function (e) {
+      e.stopPropagation()
+      copyToClipboard(text, copyLabel)
     })
-    header.append(copyBtn)
+    inner.append(btn)
+    td.append(inner)
+    return td
+  }
 
-    var textarea = $(
-      '<textarea readonly rows="1" class="pf-output-tagged-value"></textarea>'
+  function appendPathsJinjaTable(container, paths) {
+    var table = $('<table class="pf-output-table"></table>')
+    table.append(
+      "<thead><tr>" +
+        "<th>" + __("Frappe Path") + "</th>" +
+        "<th>" + __("Jinja Tag") + "</th>" +
+      "</tr></thead>"
     )
-    textarea.val(value)
 
-    block.append(header).append(textarea)
-    container.append(block)
+    var tbody = $("<tbody></tbody>")
+    paths.forEach(function (path) {
+      var jinja = "{{ doc." + path + " }}"
+      var tr = $("<tr></tr>")
+      tr.append(buildCopyCell(path, __("Frappe Path")))
+      tr.append(buildCopyCell(jinja, __("Jinja Tag")))
+      tbody.append(tr)
+    })
+
+    table.append(tbody)
+    container.append(table)
   }
 
   function showAllOutputsDialog(root, paths) {
@@ -164,52 +184,24 @@
       '<p style="margin: 0 0 12px; font-size: 12px; color: var(--gray-600);">' + headerText + "</p>"
     )
 
-    if (paths.length === 1) {
-      var path = paths[0]
-      var values = {
-        jinja: "{{ doc." + path + " }}",
-        path: path,
-        sql_report: __("Loading..."),
-        sql_param: __("Loading..."),
-      }
-      var rowEls = {}
-      var section = $('<div class="pf-output-path-section"></div>')
-      appendOutputRows(section, OUTPUT_ROWS, values, rowEls)
-      body.append(section)
-      calcAllOutputs(root, paths, values, rowEls)
-    } else {
-      var jinjaGroup = $('<div class="pf-output-group"></div>')
-      jinjaGroup.append('<div class="pf-output-group-title">' + __("Jinja Tags") + "</div>")
-      paths.forEach(function (path) {
-        appendTaggedCopyRow(
-          jinjaGroup,
-          path,
-          "{{ doc." + path + " }}",
-          __("Jinja Tag")
-        )
-      })
-      body.append(jinjaGroup)
+    var tableGroup = $('<div class="pf-output-group pf-output-table-group"></div>')
+    appendPathsJinjaTable(tableGroup, paths)
+    body.append(tableGroup)
 
-      var pathGroup = $('<div class="pf-output-group"></div>')
-      pathGroup.append('<div class="pf-output-group-title">' + __("Frappe Paths") + "</div>")
-      paths.forEach(function (path) {
-        appendTaggedCopyRow(pathGroup, path, path, __("Frappe Path"))
-      })
-      body.append(pathGroup)
-
-      var sqlValues = {
-        sql_report: __("Loading..."),
-        sql_param: __("Loading..."),
-      }
-      var sqlRowEls = {}
-      var sqlSection = $('<div class="pf-output-group pf-output-sql-group"></div>')
+    var sqlValues = {
+      sql_report: __("Loading..."),
+      sql_param: __("Loading..."),
+    }
+    var sqlRowEls = {}
+    var sqlSection = $('<div class="pf-output-group pf-output-sql-group"></div>')
+    if (paths.length > 1) {
       sqlSection.append(
         '<div class="pf-output-group-title">' + __("SQL (all selected fields)") + "</div>"
       )
-      appendOutputRows(sqlSection, SQL_ROWS, sqlValues, sqlRowEls)
-      body.append(sqlSection)
-      calcAllOutputs(root, paths, sqlValues, sqlRowEls)
     }
+    appendOutputRows(sqlSection, SQL_ROWS, sqlValues, sqlRowEls)
+    body.append(sqlSection)
+    calcAllOutputs(root, paths, sqlValues, sqlRowEls)
 
     dialog.$body.empty().append(body)
 
@@ -235,14 +227,6 @@
   function calcAllOutputs(root, paths, values, rowEls) {
     paths = normalizePaths(paths)
     if (!paths.length) return
-
-    if (paths.length === 1) {
-      var path = paths[0]
-      values.jinja = "{{ doc." + path + " }}"
-      values.path = path
-      if (rowEls.jinja) rowEls.jinja.val(values.jinja)
-      if (rowEls.path) rowEls.path.val(values.path)
-    }
 
     if (rowEls.sql_report) {
       values.sql_report = __("Loading...")

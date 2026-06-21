@@ -290,45 +290,92 @@
 }
 
 .pf-output-group {
-	margin-bottom: 18px;
+	margin-bottom: 14px;
 }
 
 .pf-output-group-title {
 	font-size: var(--text-md, 13px);
 	font-weight: 600;
 	color: var(--text-color);
-	margin-bottom: 8px;
+	margin-bottom: 6px;
 }
 
-.pf-output-tagged-row {
-	margin-bottom: 10px;
+.pf-output-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 11px;
+	table-layout: fixed;
 }
 
-.pf-output-tagged-header {
+.pf-output-table th {
+	text-align: left;
+	font-weight: 600;
+	padding: 3px 6px;
+	border-bottom: 1px solid var(--gray-300);
+	color: var(--text-color);
+	font-size: 11px;
+	line-height: 1.2;
+}
+
+.pf-output-table td {
+	padding: 1px 4px;
+	border-bottom: 1px solid var(--gray-100);
+	vertical-align: middle;
+}
+
+.pf-output-table tr:last-child td {
+	border-bottom: none;
+}
+
+.pf-output-cell-inner {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
-	gap: 8px;
-	margin-bottom: 4px;
+	gap: 4px;
+	min-height: 20px;
 }
 
-.pf-output-tagged-path {
-	font-family: var(--font-stack-monospace, monospace);
-	font-size: var(--text-sm, 11px);
-	color: var(--blue-700);
-	word-break: break-all;
+.pf-output-cell-text {
 	flex: 1;
 	min-width: 0;
-}
-
-.pf-output-tagged-value {
-	width: 100%;
 	font-family: var(--font-stack-monospace, monospace);
 	font-size: 11px;
-	padding: 6px 8px;
-	resize: vertical;
-	background: var(--gray-50);
-	border: 1px solid var(--gray-200);
+	color: var(--text-color);
+	word-break: break-all;
+	line-height: 1.25;
+	padding: 1px 0;
+}
+
+.pf-copy-cell-btn {
+	flex-shrink: 0;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	background: none;
+	border: none;
+	cursor: pointer;
+	padding: 2px;
+	color: var(--gray-500);
+	line-height: 0;
+	border-radius: var(--border-radius-sm, 3px);
+}
+
+.pf-copy-cell-btn:hover {
+	color: var(--gray-700);
+	background: var(--gray-100);
+}
+
+.pf-copy-cell-btn svg {
+	width: 14px;
+	height: 14px;
+	display: block;
+}
+
+.pf-output-table-group {
+	margin-bottom: 12px;
+}
+
+.pf-output-sql-group .pf-output-row {
+	margin-bottom: 10px !important;
 }
 
 .pf-output-sql-group .pf-output-row textarea {
