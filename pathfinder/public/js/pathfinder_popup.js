@@ -12,6 +12,7 @@
   var DRILLABLE_TYPES = ["Link", "Table", "Table MultiSelect", "Dynamic Link"]
   var LINK_TYPES = ["Link", "Dynamic Link"]
   var TABLE_TYPES = ["Table", "Table MultiSelect"]
+  var REVERSE_TABLE_CHAR = "\u25A6"
 
   function escapeHtml(text) {
     if (frappe.utils && frappe.utils.escape_html) {
@@ -26,6 +27,10 @@
 
   function isDrillable(field) {
     return DRILLABLE_TYPES.indexOf(field.fieldtype) >= 0 && !!field.options
+  }
+
+  function isLinkedValueField(field) {
+    return LINK_TYPES.indexOf(field.fieldtype) >= 0
   }
 
   function badgeText(field) {
@@ -78,19 +83,77 @@
     if (!paths || !paths.length) return
     dialog.hide()
     if (options.onConfirm) {
-      options.onConfirm(paths)
+      options.onConfirm({ mode: "forward", paths: paths })
     } else if (paths.length === 1) {
       showOutputDialog(paths[0], options)
     }
   }
 
-  function tileClasses(field, isActive, isPicked) {
+  function getReverseColumns(dialog) {
+    if (!dialog._pfReverseColumns) dialog._pfReverseColumns = []
+    return dialog._pfReverseColumns
+  }
+
+  function addReverseColumn(dialog, fieldname) {
+    var cols = getReverseColumns(dialog)
+    if (!fieldname || cols.indexOf(fieldname) >= 0) return false
+    cols.push(fieldname)
+    return true
+  }
+
+  function removeReverseColumn(dialog, fieldname) {
+    var cols = getReverseColumns(dialog)
+    var idx = cols.indexOf(fieldname)
+    if (idx >= 0) cols.splice(idx, 1)
+  }
+
+  function finishWithReverseSelection(dialog, columns, col, fieldnames, options) {
+    if (!fieldnames || !fieldnames.length || !col.reverseLink) return
+    dialog.hide()
+    if (options.onConfirm) {
+      options.onConfirm({
+        mode: "reverse",
+        selection: {
+          root_doctype: columns[0].doctype,
+          child_doctype: col.doctype,
+          link_field: col.reverseLink.link_field,
+          columns: fieldnames,
+        },
+      })
+    }
+  }
+
+  function isReverseColumn(col) {
+    return col && col.direction === "reverse"
+  }
+
+  function tileClasses(field, isActive, isPicked, isReverse) {
     var cls = ["pf-tile"]
-    if (LINK_TYPES.indexOf(field.fieldtype) >= 0) cls.push("pf-tile-link")
+    if (isReverse) cls.push("pf-tile-reverse")
+    else if (LINK_TYPES.indexOf(field.fieldtype) >= 0) cls.push("pf-tile-link")
     else if (TABLE_TYPES.indexOf(field.fieldtype) >= 0) cls.push("pf-tile-table")
     if (isPicked) cls.push("pf-tile-picked")
     if (isActive) cls.push("pf-tile-active")
     return cls.join(" ")
+  }
+
+  function buildReverseRelationTileHtml(rel, isActive) {
+    var label = escapeHtml(rel.label || rel.child_doctype)
+    var fieldname = escapeHtml(rel.link_field)
+    var badge = escapeHtml(REVERSE_TABLE_CHAR + " " + rel.child_doctype)
+
+    return (
+      '<div class="pf-tile pf-tile-reverse' + (isActive ? " pf-tile-active" : "") + '">' +
+        '<div class="pf-tile-top">' +
+          '<span class="pf-tile-label">' + label + "</span>" +
+          '<span class="pf-tile-arrow pf-tile-arrow-reverse">' + REVERSE_TABLE_CHAR + "</span>" +
+        "</div>" +
+        '<div class="pf-tile-meta">' +
+          '<span class="pf-tile-fieldname">' + fieldname + "</span>" +
+          '<span class="pf-tile-badge">' + badge + "</span>" +
+        "</div>" +
+      "</div>"
+    )
   }
 
   function buildTileHtml(field, isActive, isPicked) {
@@ -132,6 +195,7 @@
 
     dialog.$wrapper.addClass("pf-tag-finder-dialog")
     dialog._pfSelectedPaths = []
+    dialog._pfReverseColumns = []
     dialog.show()
     renderNavigator(dialog, columns, options)
   }
@@ -167,6 +231,15 @@
       if (col.selectedField) pathParts.push(col.selectedField)
     })
     var pathStr = pathParts.join(".")
+    var reverseCol = columns.length ? columns[columns.length - 1] : null
+
+    if (isReverseColumn(reverseCol)) {
+      var revCols = getReverseColumns(dialog)
+      pathStr =
+        REVERSE_TABLE_CHAR + reverseCol.doctype +
+        " (" + reverseCol.reverseLink.link_field + ")" +
+        (revCols.length ? ": " + revCols.join(", ") : "")
+    }
 
     if (pathStr) {
       var pathBar = $('<div class="pf-path-bar"></div>').appendTo(container)
@@ -184,27 +257,34 @@
   }
 
   function renderMultiBar(container, dialog, columns, options) {
-    var paths = getSelectedPaths(dialog)
+    var reverseCol = columns.length ? columns[columns.length - 1] : null
+    var inReverse = isReverseColumn(reverseCol)
+    var paths = inReverse ? getReverseColumns(dialog) : getSelectedPaths(dialog)
     var bar = $('<div class="pf-multi-bar"></div>').appendTo(container)
 
     bar.append(
       '<span class="pf-multi-hint">' +
-        escapeHtml(__("Shift+click a field to add paths. Click without Shift to finish.")) +
+        escapeHtml(
+          inReverse
+            ? __("Shift+click fields to add columns. Click without Shift to finish.")
+            : __("Shift+click a field to add paths. Click without Shift to finish.")
+        ) +
       "</span>"
     )
 
     var chips = $('<div class="pf-multi-chips"></div>').appendTo(bar)
 
-    paths.forEach(function (path) {
+    paths.forEach(function (item) {
       var chip = $(
         '<span class="pf-multi-chip">' +
-          '<code>' + escapeHtml(path) + "</code>" +
+          '<code>' + escapeHtml(item) + "</code>" +
           '<button type="button" class="pf-multi-chip-remove" title="' + escapeHtml(__("Remove")) + '">&times;</button>' +
         "</span>"
       ).appendTo(chips)
       chip.find(".pf-multi-chip-remove").on("click", function (e) {
         e.stopPropagation()
-        removeSelectedPath(dialog, path)
+        if (inReverse) removeReverseColumn(dialog, item)
+        else removeSelectedPath(dialog, item)
         renderNavigator(dialog, columns, options)
       })
     })
@@ -216,15 +296,69 @@
         "</button>"
       ).appendTo(bar)
       doneBtn.on("click", function () {
-        finishWithPaths(dialog, paths.slice(), options)
+        if (inReverse) {
+          finishWithReverseSelection(dialog, columns, reverseCol, paths.slice(), options)
+        } else {
+          finishWithPaths(dialog, paths.slice(), options)
+        }
       })
     }
+  }
+
+  function renderReverseLinksSection(list, panel, dialog, columns, col, colIdx, container, options) {
+    if (isReverseColumn(col)) return
+
+    frappe.call({
+      method: "pathfinder.api.pathfinder_api.get_reverse_link_doctypes",
+      args: { doctype: col.doctype },
+      callback: function (r) {
+        var relations = r.message || []
+        if (!relations.length) return
+
+        list.append('<div class="pf-section-label">' + escapeHtml(__("Related tables")) + "</div>")
+
+        relations.forEach(function (rel) {
+          var isActive =
+            columns[colIdx + 1] &&
+            columns[colIdx + 1].doctype === rel.child_doctype &&
+            columns[colIdx + 1].reverseLink &&
+            columns[colIdx + 1].reverseLink.link_field === rel.link_field
+
+          var tile = $(buildReverseRelationTileHtml(rel, isActive)).appendTo(list)
+          tile.on("click", function () {
+            columns = columns.slice(0, colIdx + 1)
+            dialog._pfReverseColumns = []
+            columns.push({
+              doctype: rel.child_doctype,
+              direction: "reverse",
+              reverseLink: {
+                parent_doctype: col.doctype,
+                link_field: rel.link_field,
+              },
+              selectedField: null,
+              selectedLabel: rel.label || rel.child_doctype,
+            })
+            renderNavigator(dialog, columns, options)
+            setTimeout(function () {
+              if (container[0]) container[0].scrollLeft = container[0].scrollWidth
+            }, 50)
+          })
+        })
+
+        panel.find(".pf-col-count-placeholder").text(
+          list.find(".pf-tile").length + " " + __("items")
+        )
+      },
+    })
   }
 
   function renderColumn(container, dialog, columns, col, colIdx, options) {
     var panel = $('<div class="pf-column"></div>').appendTo(container)
     var header = $('<div class="pf-col-header"></div>').appendTo(panel)
-    header.append("<span>" + escapeHtml(col.doctype) + "</span>")
+    var headerLabel = isReverseColumn(col)
+      ? REVERSE_TABLE_CHAR + " " + col.doctype
+      : col.doctype
+    header.append("<span>" + escapeHtml(headerLabel) + "</span>")
     header.append('<span class="pf-col-count pf-col-count-placeholder">…</span>')
 
     var list = $('<div class="pf-tiles"></div>').appendTo(panel)
@@ -250,14 +384,41 @@
 
         r.message.forEach(function (field) {
           var isActive = col.selectedField === field.fieldname
-          var fieldPath = buildPathWithField(columns, colIdx, field.fieldname)
-          var isPicked = getSelectedPaths(dialog).indexOf(fieldPath) >= 0
+          var isPicked = isReverseColumn(col)
+            ? getReverseColumns(dialog).indexOf(field.fieldname) >= 0
+            : getSelectedPaths(dialog).indexOf(buildPathWithField(columns, colIdx, field.fieldname)) >= 0
           var tile = $(buildTileHtml(field, isActive, isPicked)).appendTo(list)
 
           tile.on("click", function (e) {
             col.selectedField = field.fieldname
             col.selectedLabel = field.label
             columns = columns.slice(0, colIdx + 1)
+
+            if (isReverseColumn(col)) {
+              if (isLinkedValueField(field)) {
+                frappe.show_alert({
+                  message: __("Link columns are excluded (scalar fields only)."),
+                  indicator: "orange",
+                }, 3)
+                return
+              }
+
+              if (e.shiftKey) {
+                if (addReverseColumn(dialog, field.fieldname)) {
+                  frappe.show_alert({
+                    message: __("Added column ({0} selected)", [getReverseColumns(dialog).length]),
+                    indicator: "green",
+                  }, 2)
+                }
+                renderNavigator(dialog, columns, options)
+                return
+              }
+
+              var cols = getReverseColumns(dialog).slice()
+              if (cols.indexOf(field.fieldname) < 0) cols.push(field.fieldname)
+              finishWithReverseSelection(dialog, columns, col, cols, options)
+              return
+            }
 
             if (isDrillable(field)) {
               columns.push({
@@ -269,6 +430,14 @@
               setTimeout(function () {
                 if (container[0]) container[0].scrollLeft = container[0].scrollWidth
               }, 50)
+              return
+            }
+
+            if (isLinkedValueField(field)) {
+              frappe.show_alert({
+                message: __("Link fields are omitted from paths/tags (use Related tables for one-to-many)."),
+                indicator: "orange",
+              }, 3)
               return
             }
 
@@ -290,6 +459,8 @@
             finishWithPaths(dialog, paths, options)
           })
         })
+
+        renderReverseLinksSection(list, panel, dialog, columns, col, colIdx, container, options)
       },
     })
   }

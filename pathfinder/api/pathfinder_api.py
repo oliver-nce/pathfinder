@@ -391,7 +391,229 @@ def build_sql_expressions(root_doctype: str, paths, style: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# 8. create_virtual_field
+# 8. Reverse joins (one-to-many via separate related DocTypes)
+# ---------------------------------------------------------------------------
+
+def _parse_string_list(values):
+    if isinstance(values, str):
+        import json
+
+        try:
+            values = json.loads(values)
+        except (TypeError, ValueError):
+            values = [v.strip() for v in values.split(",") if v.strip()]
+    if not isinstance(values, (list, tuple)):
+        values = [values]
+    return [str(v).strip() for v in values if v and str(v).strip()]
+
+
+def _doctype_alias(doctype: str) -> str:
+    return doctype.lower().replace(" ", "_").replace("-", "_")
+
+
+def _terminal_field_meta(root_doctype: str, path: str):
+    """Return (terminal_field, fieldtype) for a dot path from root."""
+    parts = [p.strip() for p in path.split(".") if p.strip()]
+    if not parts:
+        return None, None
+
+    current_doctype = root_doctype
+    field = None
+
+    for i, segment in enumerate(parts):
+        meta = frappe.get_meta(current_doctype)
+        field = meta.get_field(segment)
+        if not field:
+            return segment, None
+
+        if i < len(parts) - 1:
+            if field.fieldtype != "Link" or not field.options:
+                return segment, field.fieldtype
+            current_doctype = field.options
+        else:
+            return segment, field.fieldtype
+
+    return None, None
+
+
+def _is_linked_value_path(root_doctype: str, path: str) -> bool:
+    """True when the path resolves to a Link / Dynamic Link (docname value)."""
+    _fieldname, fieldtype = _terminal_field_meta(root_doctype, path)
+    return fieldtype in ("Link", "Dynamic Link")
+
+
+@frappe.whitelist()
+def filter_scalar_paths(root_doctype: str, paths) -> list:
+    """Drop paths whose terminal field is a Link (one-to-many / FK docname)."""
+    frappe.has_permission(root_doctype, throw=True)
+    paths = _parse_string_list(paths)
+    return [p for p in paths if not _is_linked_value_path(root_doctype, p)]
+
+
+def _filter_scalar_columns(doctype: str, columns: list) -> list:
+    """Drop Link / child-table columns from one-to-many column picks."""
+    columns = _parse_string_list(columns)
+    skip_types = {"Link", "Dynamic Link", "Table", "Table MultiSelect"}
+    filtered = []
+    for col in columns:
+        field = frappe.get_meta(doctype).get_field(col)
+        if field and field.fieldtype in skip_types:
+            continue
+        filtered.append(col)
+    return filtered
+
+
+@frappe.whitelist()
+def get_reverse_link_doctypes(doctype: str) -> list:
+    """Return separate DocTypes that Link back to *doctype* (one-to-many)."""
+    frappe.has_permission(doctype, throw=True)
+
+    link_fields = frappe.get_all(
+        "DocField",
+        filters={"fieldtype": "Link", "options": doctype},
+        fields=["parent", "fieldname", "label"],
+        order_by="parent asc, fieldname asc",
+    )
+
+    result = []
+    for row in link_fields:
+        child_doctype = row.parent
+        if not child_doctype or frappe.get_meta(child_doctype).istable:
+            continue
+        result.append(
+            {
+                "child_doctype": child_doctype,
+                "link_field": row.fieldname,
+                "label": _(row.label or row.fieldname),
+            }
+        )
+    return result
+
+
+def _build_reverse_sql(
+    root_doctype: str,
+    child_doctype: str,
+    link_field: str,
+    columns: list,
+    style: str,
+) -> str:
+    columns = _parse_string_list(columns)
+    if not columns:
+        frappe.throw(_("No columns provided"))
+
+    alias = _doctype_alias(child_doctype)
+    child_tab = _tab_name(child_doctype)
+    root_tab = _tab_name(root_doctype)
+    select_cols = ",\n".join(f"  `{alias}`.{col}" for col in columns)
+
+    lines = [
+        "SELECT",
+        select_cols,
+        f"FROM {child_tab} AS `{alias}`",
+    ]
+
+    if style == "report":
+        lines.append(f"WHERE `{alias}`.{link_field} = {root_tab}.name")
+    else:
+        lines.append(f"WHERE `{alias}`.{link_field} = %(name)s")
+
+    return "\n".join(lines)
+
+
+def _html_cell_expr(alias: str, col: str) -> str:
+    """SQL expression for one escaped HTML table cell value."""
+    return (
+        f"REPLACE(REPLACE(REPLACE(CAST(IFNULL(`{alias}`.{col}, '') AS CHAR), "
+        "'&', '&amp;'), '<', '&lt;'), '>', '&gt;')"
+    )
+
+
+def _build_reverse_row_concat_expr(alias: str, columns: list) -> str:
+    parts = ["'<tr>'"]
+    for col in columns:
+        parts.append(f"'<td>', {_html_cell_expr(alias, col)}, '</td>'")
+    parts.append("'</tr>'")
+    return "CONCAT(" + ", ".join(parts) + ")"
+
+
+def _build_reverse_html_table_sql(
+    root_doctype: str,
+    child_doctype: str,
+    link_field: str,
+    columns: list,
+    style: str,
+) -> str:
+    """Build SQL that returns a complete HTML <table> string (CONCAT + GROUP_CONCAT)."""
+    columns = _parse_string_list(columns)
+    if not columns:
+        frappe.throw(_("No columns provided"))
+
+    alias = _doctype_alias(child_doctype)
+    child_tab = _tab_name(child_doctype)
+    root_tab = _tab_name(root_doctype)
+    header = "".join(f"<th>{col}</th>" for col in columns)
+    row_expr = _build_reverse_row_concat_expr(alias, columns)
+
+    agg_sql = (
+        f"SELECT GROUP_CONCAT({row_expr} SEPARATOR '')\n"
+        f"FROM {child_tab} AS `{alias}`\n"
+        f"WHERE `{alias}`.{link_field} = "
+    )
+
+    if style == "report":
+        agg_sql += f"{root_tab}.name"
+        return (
+            "CONCAT(\n"
+            f"  '<table><tr>{header}</tr>',\n"
+            f"  IFNULL(({agg_sql}), ''),\n"
+            "  '</table>'\n"
+            ")"
+        )
+
+    return (
+        "SELECT CONCAT(\n"
+        f"  '<table><tr>{header}</tr>',\n"
+        "  IFNULL((\n"
+        f"    {agg_sql}%(name)s\n"
+        "  ), ''),\n"
+        "  '</table>'\n"
+        ") AS html_table"
+    )
+
+
+@frappe.whitelist()
+def build_reverse_outputs(
+    root_doctype: str,
+    child_doctype: str,
+    link_field: str,
+    columns,
+) -> dict:
+    """Build row SQL plus SQL expressions that return an HTML table string."""
+    frappe.has_permission(root_doctype, throw=True)
+    frappe.has_permission(child_doctype, throw=True)
+
+    columns = _filter_scalar_columns(child_doctype, columns)
+    if not columns:
+        frappe.throw(_("No scalar columns provided (Link fields are excluded)."))
+
+    return {
+        "sql_report": _build_reverse_sql(
+            root_doctype, child_doctype, link_field, columns, "report"
+        ),
+        "sql_param": _build_reverse_sql(
+            root_doctype, child_doctype, link_field, columns, "parameterized"
+        ),
+        "html_table": _build_reverse_html_table_sql(
+            root_doctype, child_doctype, link_field, columns, "parameterized"
+        ),
+        "html_table_report": _build_reverse_html_table_sql(
+            root_doctype, child_doctype, link_field, columns, "report"
+        ),
+    }
+
+
+# ---------------------------------------------------------------------------
+# 9. create_virtual_field
 # ---------------------------------------------------------------------------
 @frappe.whitelist()
 def create_virtual_field(

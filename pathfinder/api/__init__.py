@@ -9,6 +9,9 @@ from .pathfinder_api import (
     build_jinja_tag,
     build_sql_expression,
     build_sql_expressions,
+    get_reverse_link_doctypes,
+    filter_scalar_paths,
+    build_reverse_outputs,
     create_virtual_field,
     inject_virtual_fields,
 )
@@ -22,6 +25,9 @@ __all__ = [
     "build_jinja_tag",
     "build_sql_expression",
     "build_sql_expressions",
+    "get_reverse_link_doctypes",
+    "filter_scalar_paths",
+    "build_reverse_outputs",
     "create_virtual_field",
     "inject_virtual_fields",
 ]

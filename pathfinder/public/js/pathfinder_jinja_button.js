@@ -31,6 +31,13 @@
     { key: "sql_param", label: __("SQL — Parameterized") },
   ]
 
+  var REVERSE_OUTPUT_ROWS = [
+    { key: "sql_report", label: __("SQL — Report (rows)") },
+    { key: "sql_param", label: __("SQL — Parameterized (rows)") },
+    { key: "html_table", label: __("SQL — HTML Table") },
+    { key: "html_table_report", label: __("SQL — HTML Table (report expr)") },
+  ]
+
   var COPY_ICON_SVG =
     '<svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">' +
       '<rect x="5" y="5" width="9" height="9" rx="1.5" stroke="currentColor" stroke-width="1.2"/>' +
@@ -52,8 +59,13 @@
 
   function openTreeWithRoot(root) {
     window.openPathfinderPopup(root, {
-      onConfirm: function (paths) {
-        showAllOutputsDialog(root, normalizePaths(paths))
+      onConfirm: function (result) {
+        if (result && result.mode === "reverse") {
+          showReverseOutputsDialog(result.selection)
+          return
+        }
+        var paths = result && result.paths ? result.paths : normalizePaths(result)
+        showAllOutputsDialog(root, paths)
       },
     })
   }
@@ -164,6 +176,21 @@
     paths = normalizePaths(paths)
     if (!paths.length) return
 
+    frappe.call({
+      method: "pathfinder.api.pathfinder_api.filter_scalar_paths",
+      args: { root_doctype: root, paths: paths },
+      callback: function (r) {
+        renderForwardOutputsDialog(root, paths, r.message || [])
+      },
+      error: function () {
+        renderForwardOutputsDialog(root, paths, paths)
+      },
+    })
+  }
+
+  function renderForwardOutputsDialog(root, paths, tagPaths) {
+    tagPaths = normalizePaths(tagPaths)
+
     var dialog = new frappe.ui.Dialog({
       title: __("Pathfinder — copy output"),
       size: "large",
@@ -183,9 +210,17 @@
       '<p style="margin: 0 0 12px; font-size: 12px; color: var(--gray-600);">' + headerText + "</p>"
     )
 
-    var tableGroup = $('<div class="pf-output-group pf-output-table-group"></div>')
-    appendPathsJinjaTable(tableGroup, paths)
-    body.append(tableGroup)
+    if (tagPaths.length) {
+      var tableGroup = $('<div class="pf-output-group pf-output-table-group"></div>')
+      appendPathsJinjaTable(tableGroup, tagPaths)
+      body.append(tableGroup)
+    } else {
+      body.append(
+        '<p style="margin: 0 0 12px; font-size: 12px; color: var(--gray-600);">' +
+          __("No scalar paths for tags (Link / one-to-many fields are excluded).") +
+        "</p>"
+      )
+    }
 
     var sqlValues = {
       sql_report: __("Loading..."),
@@ -200,7 +235,14 @@
     }
     appendOutputRows(sqlSection, SQL_ROWS, sqlValues, sqlRowEls)
     body.append(sqlSection)
-    calcAllOutputs(root, paths, sqlValues, sqlRowEls)
+    if (tagPaths.length) {
+      calcAllOutputs(root, tagPaths, sqlValues, sqlRowEls)
+    } else {
+      values.sql_report = __("No scalar paths for SQL (Link fields excluded).")
+      values.sql_param = values.sql_report
+      if (sqlRowEls.sql_report) sqlRowEls.sql_report.val(values.sql_report)
+      if (sqlRowEls.sql_param) sqlRowEls.sql_param.val(values.sql_param)
+    }
 
     dialog.$body.empty().append(body)
 
@@ -221,6 +263,90 @@
     footer.prepend(redoBtn)
 
     dialog.show()
+  }
+
+  function showReverseOutputsDialog(selection) {
+    if (!selection || !selection.columns || !selection.columns.length) return
+
+    var root = selection.root_doctype
+    var dialog = new frappe.ui.Dialog({
+      title: __("Pathfinder — related table output"),
+      size: "large",
+    })
+
+    var body = $('<div class="pathfinder-output-dialog" style="padding: 4px 0;"></div>')
+    body.append(
+      '<p style="margin: 0 0 12px; font-size: 12px; color: var(--gray-600);">' +
+        __("Root DocType") + ": <strong>" + frappe.utils.escape_html(root) + "</strong> &nbsp;|&nbsp; " +
+        __("Related") + ": <strong>" + frappe.utils.escape_html(selection.child_doctype) + "</strong> &nbsp;|&nbsp; " +
+        __("Link field") + ": <strong>" + frappe.utils.escape_html(selection.link_field) + "</strong> &nbsp;|&nbsp; " +
+        __("Columns") + ": <strong>" + frappe.utils.escape_html(selection.columns.join(", ")) + "</strong>" +
+      "</p>"
+    )
+
+    var values = {
+      sql_report: __("Loading..."),
+      sql_param: __("Loading..."),
+      html_table: __("Loading..."),
+      html_table_report: __("Loading..."),
+    }
+    var rowEls = {}
+    var section = $('<div class="pf-output-group pf-output-sql-group"></div>')
+    section.append(
+      '<div class="pf-output-group-title">' + __("One-to-many (multiple rows)") + "</div>"
+    )
+    appendOutputRows(section, REVERSE_OUTPUT_ROWS, values, rowEls)
+    body.append(section)
+
+    dialog.$body.empty().append(body)
+    dialog.set_primary_action(__("Cancel"), function () {
+      dialog.hide()
+    })
+
+    var footer = dialog.$wrapper.find(".modal-footer")
+    var redoBtn = $(
+      '<button type="button" class="btn btn-sm btn-default" style="margin-right: 6px;">' +
+        __("Redo Selection") +
+      "</button>"
+    )
+    redoBtn.on("click", function () {
+      dialog.hide()
+      openTreeWithRoot(root)
+    })
+    footer.prepend(redoBtn)
+
+    dialog.show()
+
+    frappe.call({
+      method: "pathfinder.api.pathfinder_api.build_reverse_outputs",
+      args: {
+        root_doctype: root,
+        child_doctype: selection.child_doctype,
+        link_field: selection.link_field,
+        columns: selection.columns,
+      },
+      callback: function (r) {
+        var msg = r.message || {}
+        values.sql_report = msg.sql_report || ""
+        values.sql_param = msg.sql_param || ""
+        values.html_table = msg.html_table || ""
+        values.html_table_report = msg.html_table_report || ""
+        if (rowEls.sql_report) rowEls.sql_report.val(values.sql_report)
+        if (rowEls.sql_param) rowEls.sql_param.val(values.sql_param)
+        if (rowEls.html_table) rowEls.html_table.val(values.html_table)
+        if (rowEls.html_table_report) rowEls.html_table_report.val(values.html_table_report)
+      },
+      error: function () {
+        values.sql_report = __("Error generating SQL")
+        values.sql_param = __("Error generating SQL")
+        values.html_table = __("Error generating SQL")
+        values.html_table_report = __("Error generating SQL")
+        if (rowEls.sql_report) rowEls.sql_report.val(values.sql_report)
+        if (rowEls.sql_param) rowEls.sql_param.val(values.sql_param)
+        if (rowEls.html_table) rowEls.html_table.val(values.html_table)
+        if (rowEls.html_table_report) rowEls.html_table_report.val(values.html_table_report)
+      },
+    })
   }
 
   function calcAllOutputs(root, paths, values, rowEls) {
