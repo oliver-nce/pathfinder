@@ -495,8 +495,9 @@ def _build_reverse_sql(
     child_doctype: str,
     link_field: str,
     columns: list,
-    style: str,
+    style: str = "",
 ) -> str:
+    """Row SQL — always joins root to related child via the reverse link field."""
     columns = _parse_string_list(columns)
     if not columns:
         frappe.throw(_("No columns provided"))
@@ -506,18 +507,14 @@ def _build_reverse_sql(
     root_tab = _tab_name(root_doctype)
     select_cols = ",\n".join(f"  `{alias}`.{col}" for col in columns)
 
-    lines = [
-        "SELECT",
-        select_cols,
-        f"FROM {child_tab} AS `{alias}`",
-    ]
-
-    if style == "report":
-        lines.append(f"WHERE `{alias}`.{link_field} = {root_tab}.name")
-    else:
-        lines.append(f"WHERE `{alias}`.{link_field} = %(name)s")
-
-    return "\n".join(lines)
+    return (
+        "SELECT\n"
+        f"{select_cols}\n"
+        f"FROM {root_tab} AS `root`\n"
+        f"INNER JOIN {child_tab} AS `{alias}` "
+        f"ON `{alias}`.{link_field} = `root`.name\n"
+        "WHERE `root`.name = %(name)s"
+    )
 
 
 def _html_cell_expr(alias: str, col: str) -> str:
@@ -541,9 +538,9 @@ def _build_reverse_html_table_sql(
     child_doctype: str,
     link_field: str,
     columns: list,
-    style: str,
+    style: str = "",
 ) -> str:
-    """Build SQL that returns a complete HTML <table> string (CONCAT + GROUP_CONCAT)."""
+    """HTML table SQL — JOIN root to child, aggregate rows with GROUP_CONCAT."""
     columns = _parse_string_list(columns)
     if not columns:
         frappe.throw(_("No columns provided"))
@@ -554,30 +551,17 @@ def _build_reverse_html_table_sql(
     header = "".join(f"<th>{col}</th>" for col in columns)
     row_expr = _build_reverse_row_concat_expr(alias, columns)
 
-    agg_sql = (
-        f"SELECT GROUP_CONCAT({row_expr} SEPARATOR '')\n"
-        f"FROM {child_tab} AS `{alias}`\n"
-        f"WHERE `{alias}`.{link_field} = "
-    )
-
-    if style == "report":
-        agg_sql += f"{root_tab}.name"
-        return (
-            "CONCAT(\n"
-            f"  '<table><tr>{header}</tr>',\n"
-            f"  IFNULL(({agg_sql}), ''),\n"
-            "  '</table>'\n"
-            ")"
-        )
-
     return (
         "SELECT CONCAT(\n"
         f"  '<table><tr>{header}</tr>',\n"
-        "  IFNULL((\n"
-        f"    {agg_sql}%(name)s\n"
-        "  ), ''),\n"
+        f"  IFNULL(GROUP_CONCAT({row_expr} SEPARATOR ''), ''),\n"
         "  '</table>'\n"
-        ") AS html_table"
+        ") AS html_table\n"
+        f"FROM {root_tab} AS `root`\n"
+        f"LEFT JOIN {child_tab} AS `{alias}` "
+        f"ON `{alias}`.{link_field} = `root`.name\n"
+        "WHERE `root`.name = %(name)s\n"
+        "GROUP BY `root`.name"
     )
 
 
