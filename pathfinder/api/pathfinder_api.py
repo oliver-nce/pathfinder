@@ -507,6 +507,15 @@ def _build_reverse_sql(
     root_tab = _tab_name(root_doctype)
     select_cols = ",\n".join(f"  `{alias}`.{col}" for col in columns)
 
+    if style == "report":
+        return (
+            "SELECT\n"
+            f"{select_cols}\n"
+            f"FROM {root_tab} AS `root`\n"
+            f"INNER JOIN {child_tab} AS `{alias}` "
+            f"ON `{alias}`.{link_field} = `root`.name"
+        )
+
     return (
         "SELECT\n"
         f"{select_cols}\n"
@@ -538,7 +547,7 @@ def _build_reverse_html_table_sql(
     child_doctype: str,
     link_field: str,
     columns: list,
-    style: str = "",
+    style: str = "parameterized",
 ) -> str:
     """HTML table SQL — JOIN root to child, aggregate rows with GROUP_CONCAT."""
     columns = _parse_string_list(columns)
@@ -551,17 +560,33 @@ def _build_reverse_html_table_sql(
     header = "".join(f"<th>{col}</th>" for col in columns)
     row_expr = _build_reverse_row_concat_expr(alias, columns)
 
-    return (
-        "SELECT CONCAT(\n"
+    concat_expr = (
+        "CONCAT(\n"
         f"  '<table><tr>{header}</tr>',\n"
         f"  IFNULL(GROUP_CONCAT({row_expr} SEPARATOR ''), ''),\n"
         "  '</table>'\n"
-        ") AS html_table\n"
+        ")"
+    )
+
+    join_from = (
         f"FROM {root_tab} AS `root`\n"
         f"LEFT JOIN {child_tab} AS `{alias}` "
         f"ON `{alias}`.{link_field} = `root`.name\n"
-        "WHERE `root`.name = %(name)s\n"
         "GROUP BY `root`.name"
+    )
+
+    if style == "report":
+        return (
+            f"SELECT\n"
+            f"  `root`.name,\n"
+            f"  {concat_expr} AS html_table\n"
+            f"{join_from}"
+        )
+
+    return (
+        f"SELECT {concat_expr} AS html_table\n"
+        f"{join_from}\n"
+        "WHERE `root`.name = %(name)s"
     )
 
 

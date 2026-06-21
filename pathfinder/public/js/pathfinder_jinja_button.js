@@ -32,10 +32,10 @@
   ]
 
   var REVERSE_OUTPUT_ROWS = [
-    { key: "sql_report", label: __("SQL — Report (rows)") },
-    { key: "sql_param", label: __("SQL — Parameterized (rows)") },
-    { key: "html_table", label: __("SQL — HTML Table") },
-    { key: "html_table_report", label: __("SQL — HTML Table (report expr)") },
+    { key: "sql_report", label: __("SQL — Report (all rows)") },
+    { key: "sql_param", label: __("SQL — Parameterized (one row)") },
+    { key: "html_table", label: __("SQL — HTML Table (one row)") },
+    { key: "html_table_report", label: __("SQL — HTML Table (all rows)") },
   ]
 
   var COPY_ICON_SVG =
