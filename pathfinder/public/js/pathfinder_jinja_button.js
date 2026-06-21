@@ -107,8 +107,7 @@
       header.append(copyBtn)
 
       var textarea = $(
-        '<textarea readonly rows="2" style="width:100%; font-family:monospace; font-size:11px; ' +
-          'padding:6px 8px; resize:vertical; background:var(--gray-50); border:1px solid var(--gray-200);"></textarea>'
+        '<textarea readonly rows="6" class="pf-output-sql-textarea"></textarea>'
       )
       textarea.val(values[row.key])
 

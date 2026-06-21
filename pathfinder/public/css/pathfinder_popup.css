@@ -378,8 +378,20 @@
 	margin-bottom: 10px !important;
 }
 
-.pf-output-sql-group .pf-output-row textarea {
-	min-height: 72px;
+.pf-output-sql-textarea {
+	width: 100%;
+	box-sizing: border-box;
+	font-family: var(--font-stack-monospace, monospace);
+	font-size: 11px;
+	line-height: 1.45;
+	padding: 6px 8px;
+	background: var(--gray-50);
+	border: 1px solid var(--gray-200);
+	resize: none;
+	overflow-y: auto;
+	overflow-x: auto;
+	height: calc(1.45em * 6 + 12px);
+	max-height: calc(1.45em * 6 + 12px);
 }
 
 .pf-tag-finder-dialog .pf-tile-top {
