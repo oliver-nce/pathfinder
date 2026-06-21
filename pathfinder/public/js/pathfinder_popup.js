@@ -94,29 +94,42 @@
     return dialog._pfReverseColumns
   }
 
-  function addReverseColumn(dialog, fieldname) {
+  function addReverseColumn(dialog, colPath) {
     var cols = getReverseColumns(dialog)
-    if (!fieldname || cols.indexOf(fieldname) >= 0) return false
-    cols.push(fieldname)
+    if (!colPath || cols.indexOf(colPath) >= 0) return false
+    cols.push(colPath)
     return true
   }
 
-  function removeReverseColumn(dialog, fieldname) {
+  function removeReverseColumn(dialog, colPath) {
     var cols = getReverseColumns(dialog)
-    var idx = cols.indexOf(fieldname)
+    var idx = cols.indexOf(colPath)
     if (idx >= 0) cols.splice(idx, 1)
   }
 
+  function getReverseAnchor(columns) {
+    for (var i = 0; i < columns.length; i++) {
+      if (columns[i].direction === "reverse") return columns[i]
+    }
+    return null
+  }
+
+  function buildReverseColumnPath(col, fieldname) {
+    if (col.hopPrefix) return col.hopPrefix + "." + fieldname
+    return fieldname
+  }
+
   function finishWithReverseSelection(dialog, columns, col, fieldnames, options) {
-    if (!fieldnames || !fieldnames.length || !col.reverseLink) return
+    var anchor = getReverseAnchor(columns)
+    if (!fieldnames || !fieldnames.length || !anchor || !anchor.reverseLink) return
     dialog.hide()
     if (options.onConfirm) {
       options.onConfirm({
         mode: "reverse",
         selection: {
           root_doctype: columns[0].doctype,
-          child_doctype: col.doctype,
-          link_field: col.reverseLink.link_field,
+          child_doctype: anchor.doctype,
+          link_field: anchor.reverseLink.link_field,
           columns: fieldnames,
         },
       })
@@ -125,6 +138,10 @@
 
   function isReverseColumn(col) {
     return col && col.direction === "reverse"
+  }
+
+  function isReverseMode(col) {
+    return col && (col.direction === "reverse" || col.direction === "reverse_hop")
   }
 
   function tileClasses(field, isActive, isPicked, isReverse) {
@@ -233,11 +250,13 @@
     var pathStr = pathParts.join(".")
     var reverseCol = columns.length ? columns[columns.length - 1] : null
 
-    if (isReverseColumn(reverseCol)) {
+    if (isReverseMode(reverseCol)) {
+      var anchor = getReverseAnchor(columns)
       var revCols = getReverseColumns(dialog)
       pathStr =
-        REVERSE_TABLE_CHAR + reverseCol.doctype +
-        " (" + reverseCol.reverseLink.link_field + ")" +
+        REVERSE_TABLE_CHAR + anchor.doctype +
+        " (" + anchor.reverseLink.link_field + ")" +
+        (reverseCol.hopPrefix ? " → " + reverseCol.hopPrefix : "") +
         (revCols.length ? ": " + revCols.join(", ") : "")
     }
 
@@ -258,7 +277,7 @@
 
   function renderMultiBar(container, dialog, columns, options) {
     var reverseCol = columns.length ? columns[columns.length - 1] : null
-    var inReverse = isReverseColumn(reverseCol)
+    var inReverse = isReverseMode(reverseCol)
     var paths = inReverse ? getReverseColumns(dialog) : getSelectedPaths(dialog)
     var bar = $('<div class="pf-multi-bar"></div>').appendTo(container)
 
@@ -306,7 +325,7 @@
   }
 
   function renderReverseLinksSection(list, panel, dialog, columns, col, colIdx, container, options) {
-    if (isReverseColumn(col)) return
+    if (isReverseMode(col)) return
 
     frappe.call({
       method: "pathfinder.api.pathfinder_api.get_reverse_link_doctypes",
@@ -355,8 +374,10 @@
   function renderColumn(container, dialog, columns, col, colIdx, options) {
     var panel = $('<div class="pf-column"></div>').appendTo(container)
     var header = $('<div class="pf-col-header"></div>').appendTo(panel)
-    var headerLabel = isReverseColumn(col)
+    var headerLabel = col.direction === "reverse"
       ? REVERSE_TABLE_CHAR + " " + col.doctype
+      : col.direction === "reverse_hop"
+      ? "\u2192 " + col.doctype
       : col.doctype
     header.append("<span>" + escapeHtml(headerLabel) + "</span>")
     header.append('<span class="pf-col-count pf-col-count-placeholder">…</span>')
@@ -384,8 +405,9 @@
 
         r.message.forEach(function (field) {
           var isActive = col.selectedField === field.fieldname
-          var isPicked = isReverseColumn(col)
-            ? getReverseColumns(dialog).indexOf(field.fieldname) >= 0
+          var colPath = buildReverseColumnPath(col, field.fieldname)
+          var isPicked = isReverseMode(col)
+            ? getReverseColumns(dialog).indexOf(colPath) >= 0
             : getSelectedPaths(dialog).indexOf(buildPathWithField(columns, colIdx, field.fieldname)) >= 0
           var tile = $(buildTileHtml(field, isActive, isPicked)).appendTo(list)
 
@@ -394,7 +416,22 @@
             col.selectedLabel = field.label
             columns = columns.slice(0, colIdx + 1)
 
-            if (isReverseColumn(col)) {
+            if (isReverseMode(col)) {
+              if (isDrillable(field)) {
+                columns.push({
+                  doctype: field.options,
+                  direction: "reverse_hop",
+                  hopPrefix: colPath,
+                  selectedField: null,
+                  selectedLabel: field.label,
+                })
+                renderNavigator(dialog, columns, options)
+                setTimeout(function () {
+                  if (container[0]) container[0].scrollLeft = container[0].scrollWidth
+                }, 50)
+                return
+              }
+
               if (isLinkedValueField(field)) {
                 frappe.show_alert({
                   message: __("Link columns are excluded (scalar fields only)."),
@@ -404,7 +441,7 @@
               }
 
               if (e.shiftKey) {
-                if (addReverseColumn(dialog, field.fieldname)) {
+                if (addReverseColumn(dialog, colPath)) {
                   frappe.show_alert({
                     message: __("Added column ({0} selected)", [getReverseColumns(dialog).length]),
                     indicator: "green",
@@ -415,7 +452,7 @@
               }
 
               var cols = getReverseColumns(dialog).slice()
-              if (cols.indexOf(field.fieldname) < 0) cols.push(field.fieldname)
+              if (cols.indexOf(colPath) < 0) cols.push(colPath)
               finishWithReverseSelection(dialog, columns, col, cols, options)
               return
             }

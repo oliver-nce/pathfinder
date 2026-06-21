@@ -450,16 +450,17 @@ def filter_scalar_paths(root_doctype: str, paths) -> list:
     return [p for p in paths if not _is_linked_value_path(root_doctype, p)]
 
 
+
 def _filter_scalar_columns(doctype: str, columns: list) -> list:
-    """Drop Link / child-table columns from one-to-many column picks."""
+    """Drop paths whose terminal field is Link / child-table."""
     columns = _parse_string_list(columns)
     skip_types = {"Link", "Dynamic Link", "Table", "Table MultiSelect"}
     filtered = []
-    for col in columns:
-        field = frappe.get_meta(doctype).get_field(col)
-        if field and field.fieldtype in skip_types:
+    for path in columns:
+        _fname, ftype = _terminal_field_meta(doctype, path)
+        if ftype in skip_types:
             continue
-        filtered.append(col)
+        filtered.append(path)
     return filtered
 
 
@@ -490,6 +491,105 @@ def get_reverse_link_doctypes(doctype: str) -> list:
     return result
 
 
+def _html_escape_text(text: str) -> str:
+    return (
+        str(text)
+        .replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+    )
+
+
+def _field_label_for_path(doctype: str, path: str) -> str:
+    """Resolve the Frappe label for the terminal field in a dot path."""
+    parts = [p.strip() for p in path.split(".") if p.strip()]
+    if not parts:
+        return path
+
+    current_doctype = doctype
+    label = parts[-1]
+    for i, segment in enumerate(parts):
+        field = frappe.get_meta(current_doctype).get_field(segment)
+        if not field:
+            break
+        label = _(field.label or segment)
+        if i < len(parts) - 1 and field.fieldtype == "Link" and field.options:
+            current_doctype = field.options
+        elif i < len(parts) - 1:
+            break
+    return label
+
+
+def _resolve_path_alias(child_doctype: str, child_alias: str, path: str):
+    """Return (sql_alias, terminal_fieldname) for a column path from the child table."""
+    parts = [p.strip() for p in path.split(".") if p.strip()]
+    if not parts:
+        frappe.throw(_("Empty column path"))
+
+    current_doctype = child_doctype
+    current_alias = child_alias
+    alias_parts = []
+
+    for segment in parts[:-1]:
+        meta = frappe.get_meta(current_doctype)
+        field = meta.get_field(segment)
+        if not field or field.fieldtype != "Link" or not field.options:
+            frappe.throw(
+                _(f"Column path '{path}': '{segment}' is not a Link field in '{current_doctype}'")
+            )
+        alias_parts.append(segment)
+        current_alias = "_".join(alias_parts)
+        current_doctype = field.options
+
+    return current_alias, parts[-1]
+
+
+def _build_reverse_column_joins(
+    child_doctype: str,
+    child_alias: str,
+    link_field: str,
+    column_paths: list,
+) -> tuple:
+    """Build shared JOINs and SELECT expressions for reverse column paths."""
+    child_tab = _tab_name(child_doctype)
+    joins = [
+        f"LEFT JOIN {child_tab} AS `{child_alias}` "
+        f"ON `{child_alias}`.{link_field} = `root`.name"
+    ]
+    join_keys = set()
+    select_exprs = []
+
+    for path in _parse_string_list(column_paths):
+        parts = [p.strip() for p in path.split(".") if p.strip()]
+        current_doctype = child_doctype
+        current_alias = child_alias
+        alias_parts = []
+
+        for segment in parts[:-1]:
+            meta = frappe.get_meta(current_doctype)
+            field = meta.get_field(segment)
+            if not field or field.fieldtype != "Link" or not field.options:
+                frappe.throw(
+                    _(f"Column path '{path}': '{segment}' is not a Link field in '{current_doctype}'")
+                )
+            alias_parts.append(segment)
+            hop_alias = "_".join(alias_parts)
+            join_key = (current_alias, segment)
+            if join_key not in join_keys:
+                join_keys.add(join_key)
+                joins.append(
+                    f"LEFT JOIN {_tab_name(field.options)} AS `{hop_alias}` "
+                    f"ON `{hop_alias}`.name = `{current_alias}`.{segment}"
+                )
+            current_alias = hop_alias
+            current_doctype = field.options
+
+        select_exprs.append(f"`{current_alias}`.{parts[-1]}")
+
+    return joins, select_exprs
+
+
 def _build_reverse_sql(
     root_doctype: str,
     child_doctype: str,
@@ -497,33 +597,22 @@ def _build_reverse_sql(
     columns: list,
     style: str = "",
 ) -> str:
-    """Row SQL — always joins root to related child via the reverse link field."""
+    """Row SQL — root joined to child (and n-hop targets for column paths)."""
     columns = _parse_string_list(columns)
     if not columns:
         frappe.throw(_("No columns provided"))
 
-    alias = _doctype_alias(child_doctype)
-    child_tab = _tab_name(child_doctype)
+    child_alias = _doctype_alias(child_doctype)
     root_tab = _tab_name(root_doctype)
-    select_cols = ",\n".join(f"  `{alias}`.{col}" for col in columns)
-
-    if style == "report":
-        return (
-            "SELECT\n"
-            f"{select_cols}\n"
-            f"FROM {root_tab} AS `root`\n"
-            f"INNER JOIN {child_tab} AS `{alias}` "
-            f"ON `{alias}`.{link_field} = `root`.name"
-        )
-
-    return (
-        "SELECT\n"
-        f"{select_cols}\n"
-        f"FROM {root_tab} AS `root`\n"
-        f"INNER JOIN {child_tab} AS `{alias}` "
-        f"ON `{alias}`.{link_field} = `root`.name\n"
-        "WHERE `root`.name = %(name)s"
+    joins, select_exprs = _build_reverse_column_joins(
+        child_doctype, child_alias, link_field, columns
     )
+    select_cols = ",\n".join(f"  {expr}" for expr in select_exprs)
+
+    lines = ["SELECT", select_cols, f"FROM {root_tab} AS `root`", *joins]
+    if style != "report":
+        lines.append("WHERE `root`.name = %(name)s")
+    return "\n".join(lines)
 
 
 def _html_cell_expr(alias: str, col: str) -> str:
@@ -534,10 +623,11 @@ def _html_cell_expr(alias: str, col: str) -> str:
     )
 
 
-def _build_reverse_row_concat_expr(alias: str, columns: list) -> str:
+def _build_reverse_row_concat_expr(child_doctype: str, child_alias: str, columns: list) -> str:
     parts = ["'<tr>'"]
-    for col in columns:
-        parts.append(f"'<td>', {_html_cell_expr(alias, col)}, '</td>'")
+    for path in _parse_string_list(columns):
+        alias, fieldname = _resolve_path_alias(child_doctype, child_alias, path)
+        parts.append(f"'<td>', {_html_cell_expr(alias, fieldname)}, '</td>'")
     parts.append("'</tr>'")
     return "CONCAT(" + ", ".join(parts) + ")"
 
@@ -554,11 +644,16 @@ def _build_reverse_html_table_sql(
     if not columns:
         frappe.throw(_("No columns provided"))
 
-    alias = _doctype_alias(child_doctype)
-    child_tab = _tab_name(child_doctype)
+    child_alias = _doctype_alias(child_doctype)
     root_tab = _tab_name(root_doctype)
-    header = "".join(f"<th>{col}</th>" for col in columns)
-    row_expr = _build_reverse_row_concat_expr(alias, columns)
+    header = "".join(
+        f"<th>{_html_escape_text(_field_label_for_path(child_doctype, col))}</th>"
+        for col in columns
+    )
+    joins, _select_exprs = _build_reverse_column_joins(
+        child_doctype, child_alias, link_field, columns
+    )
+    row_expr = _build_reverse_row_concat_expr(child_doctype, child_alias, columns)
 
     concat_expr = (
         "CONCAT(\n"
@@ -568,25 +663,20 @@ def _build_reverse_html_table_sql(
         ")"
     )
 
-    join_from = (
-        f"FROM {root_tab} AS `root`\n"
-        f"LEFT JOIN {child_tab} AS `{alias}` "
-        f"ON `{alias}`.{link_field} = `root`.name\n"
-        "GROUP BY `root`.name"
-    )
+    join_from = [f"FROM {root_tab} AS `root`", *joins, "GROUP BY `root`.name"]
 
     if style == "report":
         return (
             f"SELECT\n"
             f"  `root`.name,\n"
             f"  {concat_expr} AS html_table\n"
-            f"{join_from}"
+            + "\n".join(join_from)
         )
 
     return (
         f"SELECT {concat_expr} AS html_table\n"
-        f"{join_from}\n"
-        "WHERE `root`.name = %(name)s"
+        + "\n".join(join_from)
+        + "\nWHERE `root`.name = %(name)s"
     )
 
 
