@@ -8,6 +8,7 @@ from .pathfinder_api import (
     resolve_single_path,
     build_jinja_tag,
     build_sql_expression,
+    build_sql_expressions,
     create_virtual_field,
     inject_virtual_fields,
 )
@@ -20,6 +21,7 @@ __all__ = [
     "resolve_single_path",
     "build_jinja_tag",
     "build_sql_expression",
+    "build_sql_expressions",
     "create_virtual_field",
     "inject_virtual_fields",
 ]

@@ -289,6 +289,52 @@
 	word-break: break-all;
 }
 
+.pf-output-group {
+	margin-bottom: 18px;
+}
+
+.pf-output-group-title {
+	font-size: var(--text-md, 13px);
+	font-weight: 600;
+	color: var(--text-color);
+	margin-bottom: 8px;
+}
+
+.pf-output-tagged-row {
+	margin-bottom: 10px;
+}
+
+.pf-output-tagged-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	margin-bottom: 4px;
+}
+
+.pf-output-tagged-path {
+	font-family: var(--font-stack-monospace, monospace);
+	font-size: var(--text-sm, 11px);
+	color: var(--blue-700);
+	word-break: break-all;
+	flex: 1;
+	min-width: 0;
+}
+
+.pf-output-tagged-value {
+	width: 100%;
+	font-family: var(--font-stack-monospace, monospace);
+	font-size: 11px;
+	padding: 6px 8px;
+	resize: vertical;
+	background: var(--gray-50);
+	border: 1px solid var(--gray-200);
+}
+
+.pf-output-sql-group .pf-output-row textarea {
+	min-height: 72px;
+}
+
 .pf-tag-finder-dialog .pf-tile-top {
 	display: flex;
 	align-items: center;

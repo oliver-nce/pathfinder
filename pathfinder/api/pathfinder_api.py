@@ -236,39 +236,26 @@ def _build_jinja_tag(doctype, path):
 
 
 # ---------------------------------------------------------------------------
-# 7. build_sql_expression
+# 7. build_sql_expression / build_sql_expressions
 # ---------------------------------------------------------------------------
-@frappe.whitelist()
-def build_sql_expression(root_doctype: str, path: str, style: str) -> str:
-    """Build a SQL expression for a given root DocType + dot-notation path.
 
-    Walks the Link-field chain and produces a ready-to-paste SQL string.
+def _tab_name(dt: str) -> str:
+    if " " in dt or "-" in dt:
+        return f"`tab{dt}`"
+    return f"tab{dt}"
 
-    style:
-        "report"        — correlated subquery referencing the root table;
-                          paste into the SELECT clause of a Frappe SQL Report.
-                          e.g. (SELECT first_name FROM tabContact
-                                WHERE name = `tabSales Order`.contact)
 
-        "parameterized" — standalone query with %(name)s placeholder for the
-                          root record PK; use in frappe.db.sql() or a Script
-                          Report filter.
-                          e.g. SELECT first_name FROM tabContact
-                               WHERE name = (SELECT contact FROM `tabSales Order`
-                                             WHERE name = %(name)s)
-    """
-    frappe.has_permission(root_doctype, throw=True)
+def _path_alias(path: str, index: int = 0) -> str:
+    alias = path.replace(".", "_")
+    return alias if alias else f"field_{index + 1}"
 
+
+def _parse_path_chain(root_doctype: str, path: str):
+    """Return (link_chain, final_field, final_doctype) for a dot-notation path."""
     parts = [p.strip() for p in path.split(".") if p.strip()]
     if not parts:
         frappe.throw(_("Empty path"))
 
-    def tab(dt: str) -> str:
-        if " " in dt or "-" in dt:
-            return f"`tab{dt}`"
-        return f"tab{dt}"
-
-    # Walk chain: [(field_name, source_doctype, target_doctype), ...]
     chain = []
     current_doctype = root_doctype
 
@@ -283,27 +270,124 @@ def build_sql_expression(root_doctype: str, path: str, style: str) -> str:
         chain.append((field_name, current_doctype, target_doctype))
         current_doctype = target_doctype
 
-    final_field = parts[-1]
-    final_doctype = current_doctype
+    return chain, parts[-1], current_doctype
+
+
+def _build_report_correlated_expr(root_doctype: str, path: str) -> str:
+    """Correlated subquery/expression for SQL Report SELECT lists."""
+    chain, final_field, final_doctype = _parse_path_chain(root_doctype, path)
 
     if not chain:
-        # Direct field on root — no traversal
-        if style == "report":
-            return f"{tab(root_doctype)}.{final_field}"
-        return f"SELECT {final_field} FROM {tab(root_doctype)} WHERE name = %(name)s"
+        return f"{_tab_name(root_doctype)}.{final_field}"
 
-    if style == "report":
-        # Correlated subquery: inner condition anchors to root table column
-        inner = f"{tab(chain[0][1])}.{chain[0][0]}"
-        for field_name, src, _tgt in chain[1:]:
-            inner = f"(SELECT {field_name} FROM {tab(src)} WHERE name = {inner})"
-        return f"(SELECT {final_field} FROM {tab(final_doctype)} WHERE name = {inner})"
-
-    # parameterized
-    inner = f"(SELECT {chain[0][0]} FROM {tab(chain[0][1])} WHERE name = %(name)s)"
+    inner = f"{_tab_name(chain[0][1])}.{chain[0][0]}"
     for field_name, src, _tgt in chain[1:]:
-        inner = f"(SELECT {field_name} FROM {tab(src)} WHERE name = {inner})"
-    return f"SELECT {final_field} FROM {tab(final_doctype)} WHERE name = {inner}"
+        inner = f"(SELECT {field_name} FROM {_tab_name(src)} WHERE name = {inner})"
+    return f"(SELECT {final_field} FROM {_tab_name(final_doctype)} WHERE name = {inner})"
+
+
+def _build_parameterized_scalar(root_doctype: str, path: str) -> str:
+    """Standalone parameterized query for a single path."""
+    chain, final_field, final_doctype = _parse_path_chain(root_doctype, path)
+
+    if not chain:
+        return f"SELECT {final_field} FROM {_tab_name(root_doctype)} WHERE name = %(name)s"
+
+    inner = f"(SELECT {chain[0][0]} FROM {_tab_name(chain[0][1])} WHERE name = %(name)s)"
+    for field_name, src, _tgt in chain[1:]:
+        inner = f"(SELECT {field_name} FROM {_tab_name(src)} WHERE name = {inner})"
+    return f"SELECT {final_field} FROM {_tab_name(final_doctype)} WHERE name = {inner}"
+
+
+def _build_join_select_sql(root_doctype: str, paths: list, style: str) -> str:
+    """Build one SELECT with LEFT JOINs linking all paths from the root table."""
+    root_tab = _tab_name(root_doctype)
+    root_alias = "root"
+
+    joins = []
+    join_keys = set()
+    select_cols = []
+
+    for i, path in enumerate(paths):
+        chain, final_field, _final_doctype = _parse_path_chain(root_doctype, path)
+        current_alias = root_alias
+        alias_parts = []
+
+        for field_name, _src_dt, tgt_dt in chain:
+            alias_parts.append(field_name)
+            child_alias = "_".join(alias_parts)
+            join_key = (current_alias, field_name)
+
+            if join_key not in join_keys:
+                join_keys.add(join_key)
+                joins.append(
+                    f"LEFT JOIN {_tab_name(tgt_dt)} AS `{child_alias}` "
+                    f"ON `{child_alias}`.name = `{current_alias}`.{field_name}"
+                )
+            current_alias = child_alias
+
+        if chain:
+            col_ref = f"`{current_alias}`.{final_field}"
+        else:
+            col_ref = f"`{root_alias}`.{final_field}"
+
+        select_cols.append(f"  {col_ref} AS `{_path_alias(path, i)}`")
+
+    lines = [
+        "SELECT",
+        ",\n".join(select_cols),
+        f"FROM {root_tab} AS `{root_alias}`",
+    ]
+    lines.extend(joins)
+
+    if style == "parameterized":
+        lines.append(f"WHERE `{root_alias}`.name = %(name)s")
+
+    return "\n".join(lines)
+
+
+def _build_combined_sql(root_doctype: str, paths: list, style: str) -> str:
+    paths = [p.strip() for p in paths if p and str(p).strip()]
+    if not paths:
+        frappe.throw(_("No paths provided"))
+
+    if len(paths) == 1:
+        if style == "report":
+            return _build_report_correlated_expr(root_doctype, paths[0])
+        return _build_parameterized_scalar(root_doctype, paths[0])
+
+    return _build_join_select_sql(root_doctype, paths, style)
+
+
+@frappe.whitelist()
+def build_sql_expression(root_doctype: str, path: str, style: str) -> str:
+    """Build a SQL expression for a single path (backward compatible)."""
+    frappe.has_permission(root_doctype, throw=True)
+    return _build_combined_sql(root_doctype, [path], style)
+
+
+@frappe.whitelist()
+def build_sql_expressions(root_doctype: str, paths, style: str) -> str:
+    """Build one combined SQL query/expression for multiple paths.
+
+    style:
+        "report"        — single SELECT with LEFT JOINs linking all paths
+        "parameterized" — same JOIN query with WHERE name = %(name)s
+    """
+    frappe.has_permission(root_doctype, throw=True)
+
+    if isinstance(paths, str):
+        import json
+
+        try:
+            paths = json.loads(paths)
+        except (TypeError, ValueError):
+            paths = [p.strip() for p in paths.split(",") if p.strip()]
+
+    if not isinstance(paths, (list, tuple)):
+        paths = [paths]
+
+    return _build_combined_sql(root_doctype, list(paths), style)
 
 
 # ---------------------------------------------------------------------------

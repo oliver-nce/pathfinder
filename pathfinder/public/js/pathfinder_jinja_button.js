@@ -33,6 +33,11 @@
     { key: "sql_param", label: __("SQL — Parameterized") },
   ]
 
+  var SQL_ROWS = [
+    { key: "sql_report", label: __("SQL — Report") },
+    { key: "sql_param", label: __("SQL — Parameterized") },
+  ]
+
   function getRootDoctype(frm) {
     var f = ROOT_FIELD[frm.doctype]
     if (f && frm.doc && frm.doc[f]) return frm.doc[f]
@@ -88,8 +93,8 @@
     openTreeWithRoot(root)
   }
 
-  function appendOutputRows(container, values, rowEls) {
-    OUTPUT_ROWS.forEach(function (row) {
+  function appendOutputRows(container, rows, values, rowEls) {
+    rows.forEach(function (row) {
       var block = $('<div class="pf-output-row" style="margin-bottom: 14px;"></div>')
       var header = $('<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;"></div>')
       header.append('<span style="font-size:12px; font-weight:600;">' + row.label + "</span>")
@@ -112,6 +117,28 @@
       container.append(block)
       rowEls[row.key] = textarea
     })
+  }
+
+  function appendTaggedCopyRow(container, path, value, copyLabel) {
+    var block = $('<div class="pf-output-tagged-row"></div>')
+    var header = $('<div class="pf-output-tagged-header"></div>')
+    header.append(
+      '<code class="pf-output-tagged-path">' + frappe.utils.escape_html(path) + "</code>"
+    )
+
+    var copyBtn = $('<button type="button" class="btn btn-xs btn-default">' + __("Copy") + "</button>")
+    copyBtn.on("click", function () {
+      copyToClipboard(value, copyLabel)
+    })
+    header.append(copyBtn)
+
+    var textarea = $(
+      '<textarea readonly rows="1" class="pf-output-tagged-value"></textarea>'
+    )
+    textarea.val(value)
+
+    block.append(header).append(textarea)
+    container.append(block)
   }
 
   function showAllOutputsDialog(root, paths) {
@@ -137,7 +164,8 @@
       '<p style="margin: 0 0 12px; font-size: 12px; color: var(--gray-600);">' + headerText + "</p>"
     )
 
-    paths.forEach(function (path) {
+    if (paths.length === 1) {
+      var path = paths[0]
       var values = {
         jinja: "{{ doc." + path + " }}",
         path: path,
@@ -145,19 +173,43 @@
         sql_param: __("Loading..."),
       }
       var rowEls = {}
-
       var section = $('<div class="pf-output-path-section"></div>')
-      if (paths.length > 1) {
-        section.append(
-          '<div class="pf-output-path-title">' +
-            '<i class="fa fa-link"></i> <code>' + frappe.utils.escape_html(path) + "</code>" +
-          "</div>"
-        )
-      }
-      appendOutputRows(section, values, rowEls)
+      appendOutputRows(section, OUTPUT_ROWS, values, rowEls)
       body.append(section)
-      calcAllOutputs(root, path, values, rowEls)
-    })
+      calcAllOutputs(root, paths, values, rowEls)
+    } else {
+      var jinjaGroup = $('<div class="pf-output-group"></div>')
+      jinjaGroup.append('<div class="pf-output-group-title">' + __("Jinja Tags") + "</div>")
+      paths.forEach(function (path) {
+        appendTaggedCopyRow(
+          jinjaGroup,
+          path,
+          "{{ doc." + path + " }}",
+          __("Jinja Tag")
+        )
+      })
+      body.append(jinjaGroup)
+
+      var pathGroup = $('<div class="pf-output-group"></div>')
+      pathGroup.append('<div class="pf-output-group-title">' + __("Frappe Paths") + "</div>")
+      paths.forEach(function (path) {
+        appendTaggedCopyRow(pathGroup, path, path, __("Frappe Path"))
+      })
+      body.append(pathGroup)
+
+      var sqlValues = {
+        sql_report: __("Loading..."),
+        sql_param: __("Loading..."),
+      }
+      var sqlRowEls = {}
+      var sqlSection = $('<div class="pf-output-group pf-output-sql-group"></div>')
+      sqlSection.append(
+        '<div class="pf-output-group-title">' + __("SQL (all selected fields)") + "</div>"
+      )
+      appendOutputRows(sqlSection, SQL_ROWS, sqlValues, sqlRowEls)
+      body.append(sqlSection)
+      calcAllOutputs(root, paths, sqlValues, sqlRowEls)
+    }
 
     dialog.$body.empty().append(body)
 
@@ -180,32 +232,49 @@
     dialog.show()
   }
 
-  function calcAllOutputs(root, path, values, rowEls) {
-    values.jinja = "{{ doc." + path + " }}"
-    values.path = path
-    values.sql_report = __("Loading...")
-    values.sql_param = __("Loading...")
+  function calcAllOutputs(root, paths, values, rowEls) {
+    paths = normalizePaths(paths)
+    if (!paths.length) return
 
-    rowEls.jinja.val(values.jinja)
-    rowEls.path.val(values.path)
-    rowEls.sql_report.val(values.sql_report)
-    rowEls.sql_param.val(values.sql_param)
+    if (paths.length === 1) {
+      var path = paths[0]
+      values.jinja = "{{ doc." + path + " }}"
+      values.path = path
+      if (rowEls.jinja) rowEls.jinja.val(values.jinja)
+      if (rowEls.path) rowEls.path.val(values.path)
+    }
 
-    fetchSqlExpression(root, path, "report", function (sql) {
-      values.sql_report = sql || ""
+    if (rowEls.sql_report) {
+      values.sql_report = __("Loading...")
       rowEls.sql_report.val(values.sql_report)
+    }
+    if (rowEls.sql_param) {
+      values.sql_param = __("Loading...")
+      rowEls.sql_param.val(values.sql_param)
+    }
+
+    fetchSqlExpressions(root, paths, "report", function (sql) {
+      values.sql_report = sql || ""
+      if (rowEls.sql_report) rowEls.sql_report.val(values.sql_report)
     })
 
-    fetchSqlExpression(root, path, "parameterized", function (sql) {
+    fetchSqlExpressions(root, paths, "parameterized", function (sql) {
       values.sql_param = sql || ""
-      rowEls.sql_param.val(values.sql_param)
+      if (rowEls.sql_param) rowEls.sql_param.val(values.sql_param)
     })
   }
 
-  function fetchSqlExpression(root, path, style, done) {
+  function fetchSqlExpressions(root, paths, style, done) {
+    paths = normalizePaths(paths)
+    var method = paths.length > 1
+      ? "pathfinder.api.pathfinder_api.build_sql_expressions"
+      : "pathfinder.api.pathfinder_api.build_sql_expression"
+
     frappe.call({
-      method: "pathfinder.api.pathfinder_api.build_sql_expression",
-      args: { root_doctype: root, path: path, style: style },
+      method: method,
+      args: paths.length > 1
+        ? { root_doctype: root, paths: paths, style: style }
+        : { root_doctype: root, path: paths[0], style: style },
       callback: function (r) {
         done(r.message || "")
       },
@@ -213,6 +282,10 @@
         done(__("Error generating SQL"))
       },
     })
+  }
+
+  function fetchSqlExpression(root, path, style, done) {
+    fetchSqlExpressions(root, [path], style, done)
   }
 
   function copyToClipboard(text, label) {
