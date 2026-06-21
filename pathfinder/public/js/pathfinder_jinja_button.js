@@ -9,7 +9,7 @@
  *   3. Walk the relationship tree — selecting a terminal field opens results immediately
  *   4. Results dialog shows all 4 outputs with Copy widgets, Cancel, and Redo Selection
  *
- * Uses hashchange + cur_frm — same pattern as pathfinder_desk.js.
+ * Uses form refresh + hashchange retry polling (same retry pattern as pathfinder_desk.js).
  * Frappe v15 / v16 compatible.
  */
 ;(function () {
@@ -40,10 +40,16 @@
     return frm.doctype
   }
 
+  function normalizePaths(pathOrPaths) {
+    if (!pathOrPaths) return []
+    if (Array.isArray(pathOrPaths)) return pathOrPaths.filter(Boolean)
+    return [pathOrPaths]
+  }
+
   function openTreeWithRoot(root) {
     window.openPathfinderPopup(root, {
-      onConfirm: function (path) {
-        showAllOutputsDialog(root, path)
+      onConfirm: function (paths) {
+        showAllOutputsDialog(root, normalizePaths(paths))
       },
     })
   }
@@ -82,31 +88,9 @@
     openTreeWithRoot(root)
   }
 
-  function showAllOutputsDialog(root, path) {
-    var values = {
-      jinja: "{{ doc." + path + " }}",
-      path: path,
-      sql_report: __("Loading..."),
-      sql_param: __("Loading..."),
-    }
-
-    var rowEls = {}
-
-    var dialog = new frappe.ui.Dialog({
-      title: __("Pathfinder — copy output"),
-      size: "large",
-    })
-
-    var body = $('<div class="pathfinder-output-dialog" style="padding: 4px 0;"></div>')
-    body.append(
-      '<p style="margin: 0 0 12px; font-size: 12px; color: var(--gray-600);">' +
-        __("Root DocType") + ": <strong>" + frappe.utils.escape_html(root) + "</strong> &nbsp;|&nbsp; " +
-        __("Path") + ": <strong>" + frappe.utils.escape_html(path) + "</strong>" +
-      "</p>"
-    )
-
+  function appendOutputRows(container, values, rowEls) {
     OUTPUT_ROWS.forEach(function (row) {
-      var block = $('<div style="margin-bottom: 14px;"></div>')
+      var block = $('<div class="pf-output-row" style="margin-bottom: 14px;"></div>')
       var header = $('<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;"></div>')
       header.append('<span style="font-size:12px; font-weight:600;">' + row.label + "</span>")
 
@@ -125,8 +109,54 @@
       textarea.val(values[row.key])
 
       block.append(header).append(textarea)
-      body.append(block)
+      container.append(block)
       rowEls[row.key] = textarea
+    })
+  }
+
+  function showAllOutputsDialog(root, paths) {
+    paths = normalizePaths(paths)
+    if (!paths.length) return
+
+    var dialog = new frappe.ui.Dialog({
+      title: __("Pathfinder — copy output"),
+      size: "large",
+    })
+
+    var body = $('<div class="pathfinder-output-dialog" style="padding: 4px 0;"></div>')
+    var headerText =
+      __("Root DocType") + ": <strong>" + frappe.utils.escape_html(root) + "</strong>"
+    if (paths.length === 1) {
+      headerText +=
+        " &nbsp;|&nbsp; " + __("Path") + ": <strong>" + frappe.utils.escape_html(paths[0]) + "</strong>"
+    } else {
+      headerText +=
+        " &nbsp;|&nbsp; " + __("{0} paths selected", [paths.length])
+    }
+    body.append(
+      '<p style="margin: 0 0 12px; font-size: 12px; color: var(--gray-600);">' + headerText + "</p>"
+    )
+
+    paths.forEach(function (path) {
+      var values = {
+        jinja: "{{ doc." + path + " }}",
+        path: path,
+        sql_report: __("Loading..."),
+        sql_param: __("Loading..."),
+      }
+      var rowEls = {}
+
+      var section = $('<div class="pf-output-path-section"></div>')
+      if (paths.length > 1) {
+        section.append(
+          '<div class="pf-output-path-title">' +
+            '<i class="fa fa-link"></i> <code>' + frappe.utils.escape_html(path) + "</code>" +
+          "</div>"
+        )
+      }
+      appendOutputRows(section, values, rowEls)
+      body.append(section)
+      calcAllOutputs(root, path, values, rowEls)
     })
 
     dialog.$body.empty().append(body)
@@ -148,7 +178,6 @@
     footer.prepend(redoBtn)
 
     dialog.show()
-    calcAllOutputs(root, path, values, rowEls)
   }
 
   function calcAllOutputs(root, path, values, rowEls) {
@@ -204,24 +233,44 @@
     document.body.removeChild(ta)
   }
 
-  function injectButton() {
+  function injectButton(frm) {
+    frm = frm || (typeof cur_frm !== "undefined" ? cur_frm : null)
     var route = frappe.get_route ? frappe.get_route() : []
-    if (!route || route[0] !== "Form") return
-    if (!cur_frm || !cur_frm.doctype) return
-    if (SKIP[cur_frm.doctype]) return
+    if (!route || route[0] !== "Form") return false
+    if (!frm || !frm.doctype || !frm.page) return false
+    if (SKIP[frm.doctype]) return false
 
     if (
-      cur_frm.page.inner_toolbar &&
-      cur_frm.page.inner_toolbar.find("button:contains('" + BUTTON_LABEL + "')").length
-    ) return
+      frm.page.inner_toolbar &&
+      frm.page.inner_toolbar.find("button:contains('" + BUTTON_LABEL + "')").length
+    ) return true
 
-    cur_frm.add_custom_button(BUTTON_LABEL, function () { openPopup(cur_frm) })
+    frm.add_custom_button(BUTTON_LABEL, function () { openPopup(frm) })
+    return true
+  }
+
+  function scheduleInject() {
+    var attempts = 0
+    var timer = setInterval(function () {
+      attempts++
+      if (injectButton() || attempts > 30) clearInterval(timer)
+    }, 100)
   }
 
   $(document).ready(function () {
-    $(window).on("hashchange", function () {
-      setTimeout(injectButton, 300)
+    // Reliable: form toolbar exists when refresh fires
+    frappe.ui.form.on("*", {
+      refresh: function (frm) {
+        injectButton(frm)
+      },
     })
-    setTimeout(injectButton, 500)
+
+    // SPA navigation — cur_frm may not exist until form finishes loading
+    $(window).on("hashchange", function () {
+      scheduleInject()
+    })
+
+    // Initial page load (direct URL or desk already open)
+    scheduleInject()
   })
 })()

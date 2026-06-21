@@ -36,15 +36,64 @@
     return text
   }
 
-  function tileClasses(field, isSelected) {
+  function buildPathFromColumns(columns) {
+    var parts = []
+    columns.forEach(function (col) {
+      if (col.selectedField) parts.push(col.selectedField)
+    })
+    return parts.join(".")
+  }
+
+  function buildPathWithField(columns, colIdx, fieldname) {
+    var parts = []
+    columns.forEach(function (col, i) {
+      if (i < colIdx && col.selectedField) {
+        parts.push(col.selectedField)
+      } else if (i === colIdx) {
+        parts.push(fieldname)
+      }
+    })
+    return parts.join(".")
+  }
+
+  function getSelectedPaths(dialog) {
+    if (!dialog._pfSelectedPaths) dialog._pfSelectedPaths = []
+    return dialog._pfSelectedPaths
+  }
+
+  function addSelectedPath(dialog, path) {
+    var paths = getSelectedPaths(dialog)
+    if (!path || paths.indexOf(path) >= 0) return false
+    paths.push(path)
+    return true
+  }
+
+  function removeSelectedPath(dialog, path) {
+    var paths = getSelectedPaths(dialog)
+    var idx = paths.indexOf(path)
+    if (idx >= 0) paths.splice(idx, 1)
+  }
+
+  function finishWithPaths(dialog, paths, options) {
+    if (!paths || !paths.length) return
+    dialog.hide()
+    if (options.onConfirm) {
+      options.onConfirm(paths)
+    } else if (paths.length === 1) {
+      showOutputDialog(paths[0], options)
+    }
+  }
+
+  function tileClasses(field, isActive, isPicked) {
     var cls = ["pf-tile"]
     if (LINK_TYPES.indexOf(field.fieldtype) >= 0) cls.push("pf-tile-link")
     else if (TABLE_TYPES.indexOf(field.fieldtype) >= 0) cls.push("pf-tile-table")
-    if (isSelected) cls.push("pf-tile-active")
+    if (isPicked) cls.push("pf-tile-picked")
+    if (isActive) cls.push("pf-tile-active")
     return cls.join(" ")
   }
 
-  function buildTileHtml(field, isSelected) {
+  function buildTileHtml(field, isActive, isPicked) {
     var label = escapeHtml(field.label || field.fieldname)
     var fieldname = escapeHtml(field.fieldname)
     var badge = escapeHtml(badgeText(field))
@@ -53,7 +102,7 @@
       : ""
 
     return (
-      '<div class="' + tileClasses(field, isSelected) + '">' +
+      '<div class="' + tileClasses(field, isActive, isPicked) + '">' +
         '<div class="pf-tile-top">' +
           '<span class="pf-tile-label">' + label + "</span>" +
           arrow +
@@ -82,6 +131,7 @@
     })
 
     dialog.$wrapper.addClass("pf-tag-finder-dialog")
+    dialog._pfSelectedPaths = []
     dialog.show()
     renderNavigator(dialog, columns, options)
   }
@@ -124,11 +174,51 @@
       pathBar.append("<code>" + escapeHtml(pathStr) + "</code>")
     }
 
+    renderMultiBar(container, dialog, columns, options)
+
     var scrollArea = $('<div class="pf-body"></div>').appendTo(container)
 
     columns.forEach(function (col, colIdx) {
       renderColumn(scrollArea, dialog, columns, col, colIdx, options)
     })
+  }
+
+  function renderMultiBar(container, dialog, columns, options) {
+    var paths = getSelectedPaths(dialog)
+    var bar = $('<div class="pf-multi-bar"></div>').appendTo(container)
+
+    bar.append(
+      '<span class="pf-multi-hint">' +
+        escapeHtml(__("Shift+click a field to add paths. Click without Shift to finish.")) +
+      "</span>"
+    )
+
+    var chips = $('<div class="pf-multi-chips"></div>').appendTo(bar)
+
+    paths.forEach(function (path) {
+      var chip = $(
+        '<span class="pf-multi-chip">' +
+          '<code>' + escapeHtml(path) + "</code>" +
+          '<button type="button" class="pf-multi-chip-remove" title="' + escapeHtml(__("Remove")) + '">&times;</button>' +
+        "</span>"
+      ).appendTo(chips)
+      chip.find(".pf-multi-chip-remove").on("click", function (e) {
+        e.stopPropagation()
+        removeSelectedPath(dialog, path)
+        renderNavigator(dialog, columns, options)
+      })
+    })
+
+    if (paths.length) {
+      var doneBtn = $(
+        '<button type="button" class="btn btn-xs btn-primary pf-multi-done">' +
+          escapeHtml(__("Done")) + " (" + paths.length + ")" +
+        "</button>"
+      ).appendTo(bar)
+      doneBtn.on("click", function () {
+        finishWithPaths(dialog, paths.slice(), options)
+      })
+    }
   }
 
   function renderColumn(container, dialog, columns, col, colIdx, options) {
@@ -159,10 +249,12 @@
         )
 
         r.message.forEach(function (field) {
-          var isSelected = col.selectedField === field.fieldname
-          var tile = $(buildTileHtml(field, isSelected)).appendTo(list)
+          var isActive = col.selectedField === field.fieldname
+          var fieldPath = buildPathWithField(columns, colIdx, field.fieldname)
+          var isPicked = getSelectedPaths(dialog).indexOf(fieldPath) >= 0
+          var tile = $(buildTileHtml(field, isActive, isPicked)).appendTo(list)
 
-          tile.on("click", function () {
+          tile.on("click", function (e) {
             col.selectedField = field.fieldname
             col.selectedLabel = field.label
             columns = columns.slice(0, colIdx + 1)
@@ -175,21 +267,27 @@
               })
               renderNavigator(dialog, columns, options)
               setTimeout(function () {
-                container[0].scrollLeft = container[0].scrollWidth
+                if (container[0]) container[0].scrollLeft = container[0].scrollWidth
               }, 50)
-            } else {
-              var parts = []
-              columns.forEach(function (c) {
-                if (c.selectedField) parts.push(c.selectedField)
-              })
-              var path = parts.join(".")
-              dialog.hide()
-              if (options.onConfirm) {
-                options.onConfirm(path)
-              } else {
-                showOutputDialog(path, options)
-              }
+              return
             }
+
+            var path = buildPathFromColumns(columns)
+
+            if (e.shiftKey) {
+              if (addSelectedPath(dialog, path)) {
+                frappe.show_alert({
+                  message: __("Added path ({0} selected)", [getSelectedPaths(dialog).length]),
+                  indicator: "green",
+                }, 2)
+              }
+              renderNavigator(dialog, columns, options)
+              return
+            }
+
+            var paths = getSelectedPaths(dialog).slice()
+            if (paths.indexOf(path) < 0) paths.push(path)
+            finishWithPaths(dialog, paths, options)
           })
         })
       },
