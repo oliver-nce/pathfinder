@@ -29,6 +29,10 @@ app_logo_url = "/assets/pathfinder/images/logo.png"
 # --------------------------------------------------------------------------
 #  Includes — CSS / JS injected into every Desk page
 # --------------------------------------------------------------------------
+app_include_css = [
+    "/assets/pathfinder/css/pathfinder_popup.css",
+]
+
 app_include_js = [
     "/assets/pathfinder/js/pathfinder.bundle.js",
     "/assets/pathfinder/js/pathfinder_popup.js",

@@ -1,0 +1,248 @@
+/**
+ * Pathfinder popup — Tag Finder layout using Frappe Desk CSS variables.
+ * Scoped under .pf-tag-finder-dialog (dialog shell) and .pf-* (inner widgets).
+ */
+
+.pf-tag-finder-dialog .modal-content {
+	border-radius: var(--border-radius-md, 8px);
+	overflow: hidden;
+}
+
+.pf-tag-finder-dialog .modal-header {
+	background: var(--blue-600);
+	color: var(--gray-50);
+	border-bottom: 1px solid var(--blue-700);
+	padding: var(--padding-sm, 8px) var(--padding-md, 12px);
+}
+
+.pf-tag-finder-dialog .modal-header .modal-title {
+	font-weight: 600;
+	font-size: var(--text-md, 14px);
+}
+
+.pf-tag-finder-dialog .modal-header .btn-modal-close,
+.pf-tag-finder-dialog .modal-header .close {
+	color: var(--gray-50);
+	opacity: 0.85;
+}
+
+.pf-tag-finder-dialog .modal-body {
+	padding: 0;
+	background: var(--bg-color);
+}
+
+.pf-tag-finder-dialog .modal-footer {
+	display: none;
+}
+
+/* ── Shell ── */
+
+.pf-tag-finder-dialog .pf-popup-container {
+	display: flex;
+	flex-direction: column;
+	min-height: 280px;
+	max-height: 55vh;
+}
+
+.pf-tag-finder-dialog .pf-breadcrumb {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	padding: var(--padding-xs, 6px) var(--padding-sm, 10px);
+	font-size: var(--text-sm, 11px);
+	color: var(--text-muted);
+	background: var(--gray-100);
+	border-bottom: 1px solid var(--border-color);
+	flex-shrink: 0;
+}
+
+.pf-tag-finder-dialog .pf-breadcrumb-btn {
+	background: none;
+	border: none;
+	cursor: pointer;
+	padding: 2px 6px;
+	border-radius: var(--border-radius-sm, 4px);
+	color: var(--text-muted);
+	font-size: var(--text-sm, 11px);
+}
+
+.pf-tag-finder-dialog .pf-breadcrumb-btn:hover {
+	background: var(--blue-50);
+	color: var(--blue-700);
+}
+
+.pf-tag-finder-dialog .pf-breadcrumb-btn.is-active {
+	color: var(--blue-700);
+	font-weight: 600;
+}
+
+.pf-tag-finder-dialog .pf-path-bar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin: 0;
+	padding: var(--padding-xs, 6px) var(--padding-md, 12px);
+	background: var(--blue-50);
+	border-bottom: 1px solid var(--blue-200);
+	font-size: var(--text-sm, 12px);
+	color: var(--text-color);
+	flex-shrink: 0;
+}
+
+.pf-tag-finder-dialog .pf-path-bar .fa-link {
+	color: var(--blue-500);
+}
+
+.pf-tag-finder-dialog .pf-path-bar code {
+	flex: 1;
+	font-family: var(--font-stack-monospace, monospace);
+	color: var(--blue-700);
+	font-size: var(--text-sm, 11px);
+}
+
+.pf-tag-finder-dialog .pf-body {
+	flex: 1;
+	display: flex;
+	overflow-x: auto;
+	overflow-y: hidden;
+	min-height: 220px;
+}
+
+/* ── Column ── */
+
+.pf-tag-finder-dialog .pf-column {
+	min-width: 230px;
+	max-width: 280px;
+	display: flex;
+	flex-direction: column;
+	border-right: 1px solid var(--border-color);
+	flex-shrink: 0;
+}
+
+.pf-tag-finder-dialog .pf-col-header {
+	padding: var(--padding-sm, 8px) var(--padding-sm, 10px);
+	background: var(--gray-100);
+	color: var(--text-color);
+	font-weight: 600;
+	font-size: var(--text-md, 13px);
+	border-bottom: 2px solid var(--border-color);
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 6px;
+	flex-shrink: 0;
+}
+
+.pf-tag-finder-dialog .pf-col-count {
+	font-size: var(--text-sm, 10px);
+	color: var(--text-muted);
+	font-weight: 400;
+	white-space: nowrap;
+}
+
+.pf-tag-finder-dialog .pf-tiles {
+	flex: 1;
+	overflow-y: auto;
+	padding: 4px;
+}
+
+/* ── Tile ── */
+
+.pf-tag-finder-dialog .pf-tile {
+	padding: 7px 10px;
+	margin-bottom: 3px;
+	border-radius: var(--border-radius-sm, 5px);
+	cursor: pointer;
+	transition: background 0.12s;
+	border: 1px solid var(--border-color);
+	border-left: 3px solid transparent;
+	background: var(--card-bg, var(--bg-color));
+}
+
+.pf-tag-finder-dialog .pf-tile:hover {
+	background: var(--gray-100);
+}
+
+.pf-tag-finder-dialog .pf-tile-link {
+	border-left-color: var(--blue-500);
+	background: var(--blue-50);
+}
+
+.pf-tag-finder-dialog .pf-tile-link:hover {
+	background: var(--blue-100);
+}
+
+.pf-tag-finder-dialog .pf-tile-table {
+	border-left-color: var(--orange-500, #e67e22);
+	background: var(--yellow-50, var(--gray-50));
+}
+
+.pf-tag-finder-dialog .pf-tile-active {
+	background: var(--blue-100) !important;
+	border-left-color: var(--blue-600);
+	border-color: var(--blue-300);
+}
+
+.pf-tag-finder-dialog .pf-tile-top {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.pf-tag-finder-dialog .pf-tile-label {
+	font-size: var(--text-md, 13px);
+	font-weight: 500;
+	color: var(--text-color);
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.pf-tag-finder-dialog .pf-tile-arrow {
+	font-size: 9px;
+	color: var(--blue-500);
+	margin-left: 4px;
+	flex-shrink: 0;
+}
+
+.pf-tag-finder-dialog .pf-tile-meta {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-top: 2px;
+	gap: 4px;
+}
+
+.pf-tag-finder-dialog .pf-tile-fieldname {
+	font-size: var(--text-sm, 11px);
+	color: var(--text-muted);
+	font-family: var(--font-stack-monospace, monospace);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	min-width: 0;
+}
+
+.pf-tag-finder-dialog .pf-tile-badge {
+	font-size: var(--text-sm, 10px);
+	color: var(--text-muted);
+	background: var(--gray-200);
+	padding: 1px 6px;
+	border-radius: var(--border-radius-sm, 3px);
+	white-space: nowrap;
+	flex-shrink: 0;
+}
+
+.pf-tag-finder-dialog .pf-loading,
+.pf-tag-finder-dialog .pf-error {
+	padding: 20px;
+	text-align: center;
+	color: var(--text-muted);
+	font-size: var(--text-md, 13px);
+}
+
+.pf-tag-finder-dialog .pf-error {
+	color: var(--red-500);
+}

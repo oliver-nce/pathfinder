@@ -1,11 +1,8 @@
 /**
  * pathfinder_popup.js
  * =====================
- * Pure JavaScript (no Vue) Pathfinder popup — column-based path navigator
- * embedded in a Frappe dialog.
- *
- * This is the default handler for window.openPathfinderPopup().
- * The Vue version remains available as window.openPathfinderPopupVue().
+ * Pure JavaScript Pathfinder popup — Tag Finder–style column navigator
+ * in a Frappe dialog (layout match; sensible static colors via CSS).
  *
  * Frappe v15/v16 compatible.
  */
@@ -13,10 +10,62 @@
   "use strict"
 
   var DRILLABLE_TYPES = ["Link", "Table", "Table MultiSelect", "Dynamic Link"]
+  var LINK_TYPES = ["Link", "Dynamic Link"]
+  var TABLE_TYPES = ["Table", "Table MultiSelect"]
 
-  /**
-   * Open the Pathfinder popup using pure JS (no Vue).
-   */
+  function escapeHtml(text) {
+    if (frappe.utils && frappe.utils.escape_html) {
+      return frappe.utils.escape_html(String(text == null ? "" : text))
+    }
+    return String(text == null ? "" : text)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+  }
+
+  function isDrillable(field) {
+    return DRILLABLE_TYPES.indexOf(field.fieldtype) >= 0 && !!field.options
+  }
+
+  function badgeText(field) {
+    var text = field.fieldtype || "Data"
+    if (isDrillable(field)) {
+      text += " \u2192 " + field.options
+    }
+    return text
+  }
+
+  function tileClasses(field, isSelected) {
+    var cls = ["pf-tile"]
+    if (LINK_TYPES.indexOf(field.fieldtype) >= 0) cls.push("pf-tile-link")
+    else if (TABLE_TYPES.indexOf(field.fieldtype) >= 0) cls.push("pf-tile-table")
+    if (isSelected) cls.push("pf-tile-active")
+    return cls.join(" ")
+  }
+
+  function buildTileHtml(field, isSelected) {
+    var label = escapeHtml(field.label || field.fieldname)
+    var fieldname = escapeHtml(field.fieldname)
+    var badge = escapeHtml(badgeText(field))
+    var arrow = isDrillable(field)
+      ? '<span class="pf-tile-arrow">&#9654;</span>'
+      : ""
+
+    return (
+      '<div class="' + tileClasses(field, isSelected) + '">' +
+        '<div class="pf-tile-top">' +
+          '<span class="pf-tile-label">' + label + "</span>" +
+          arrow +
+        "</div>" +
+        '<div class="pf-tile-meta">' +
+          '<span class="pf-tile-fieldname">' + fieldname + "</span>" +
+          '<span class="pf-tile-badge">' + badge + "</span>" +
+        "</div>" +
+      "</div>"
+    )
+  }
+
   function openPathfinderPopup(rootDoctype, options) {
     options = options || {}
     if (!rootDoctype) {
@@ -27,40 +76,34 @@
     var columns = [{ doctype: rootDoctype, selectedField: null, selectedLabel: null }]
 
     var dialog = new frappe.ui.Dialog({
-      title: __("Pathfinder — {0}", [rootDoctype]),
-      fields: [
-        {
-          fieldtype: "HTML",
-          fieldname: "navigator",
-        },
-      ],
+      title: __("Pathfinder: {0}", [rootDoctype]),
+      size: "large",
+      fields: [{ fieldtype: "HTML", fieldname: "navigator" }],
     })
 
+    dialog.$wrapper.addClass("pf-tag-finder-dialog")
     dialog.show()
     renderNavigator(dialog, columns, options)
   }
 
-  /**
-   * Render the column-based navigator into the dialog HTML field.
-   */
   function renderNavigator(dialog, columns, options) {
     options = options || {}
     var wrapper = dialog.fields_dict.navigator.$wrapper
     wrapper.empty()
 
-    var container = wrapper.append(
-      '<div class="pf-popup-container" style="position: relative; max-height: 400px;"></div>'
-    ).find(".pf-popup-container")
+    var container = $('<div class="pf-popup-container"></div>').appendTo(wrapper)
 
-    // Breadcrumb trail
-    var breadcrumb = $('<div class="pf-breadcrumb" style="display: flex; flex-wrap: wrap; gap: 4px; padding: 8px 12px; font-size: 12px; color: var(--gray-500); border-bottom: 1px solid var(--gray-200);"></div>').appendTo(container)
+    var breadcrumb = $('<div class="pf-breadcrumb"></div>').appendTo(container)
     columns.forEach(function (col, idx) {
-      if (idx > 0) {
-        breadcrumb.append('<span style="color: var(--gray-300);"> / </span>')
-      }
-      var btn = $('<button class="pf-breadcrumb-btn" style="background: none; border: none; cursor: pointer; padding: 2px 6px; border-radius: 4px; color: ' +
-        (idx === columns.length - 1 ? 'var(--gray-800); font-weight: 600;' : 'var(--gray-500);') + '">' +
-        (col.selectedLabel || col.doctype) + '</button>').appendTo(breadcrumb)
+      if (idx > 0) breadcrumb.append('<span> / </span>')
+      var isActive = idx === columns.length - 1
+      var btn = $(
+        '<button type="button" class="pf-breadcrumb-btn' +
+          (isActive ? " is-active" : "") +
+          '">' +
+          escapeHtml(col.selectedLabel || col.doctype) +
+        "</button>"
+      ).appendTo(breadcrumb)
       btn.on("click", function () {
         columns[idx].selectedField = null
         columns[idx].selectedLabel = null
@@ -69,78 +112,82 @@
       })
     })
 
-    // Path bar
     var pathParts = []
-    columns.forEach(function (col) { if (col.selectedField) pathParts.push(col.selectedField) })
+    columns.forEach(function (col) {
+      if (col.selectedField) pathParts.push(col.selectedField)
+    })
     var pathStr = pathParts.join(".")
 
     if (pathStr) {
-      var pathBar = $('<div style="display: flex; align-items: center; gap: 8px; margin: 8px 12px; padding: 6px 10px; background: var(--blue-50); border: 1px solid var(--blue-200); border-radius: 6px; font-size: 12px;"></div>').appendTo(container)
-      pathBar.append('<i class="fa fa-link" style="color: var(--blue-500);"></i>')
-      pathBar.append('<code style="flex: 1; font-family: monospace; color: var(--blue-700);">' + pathStr + '</code>')
+      var pathBar = $('<div class="pf-path-bar"></div>').appendTo(container)
+      pathBar.append('<i class="fa fa-link"></i>')
+      pathBar.append("<code>" + escapeHtml(pathStr) + "</code>")
     }
 
-    // Columns area
-    var scrollArea = $('<div style="display: flex; overflow-x: auto; gap: 1px; padding: 8px 0; min-height: 200px; max-height: 260px; border-top: 1px solid var(--gray-100);"></div>').appendTo(container)
+    var scrollArea = $('<div class="pf-body"></div>').appendTo(container)
 
     columns.forEach(function (col, colIdx) {
       renderColumn(scrollArea, dialog, columns, col, colIdx, options)
     })
   }
 
-  /**
-   * Render a single column of fields.
-   */
   function renderColumn(container, dialog, columns, col, colIdx, options) {
-    var panel = $('<div style="min-width: 200px; max-width: 240px; flex-shrink: 0; border-right: 1px solid var(--gray-200);"></div>').appendTo(container)
+    var panel = $('<div class="pf-column"></div>').appendTo(container)
+    var header = $('<div class="pf-col-header"></div>').appendTo(panel)
+    header.append("<span>" + escapeHtml(col.doctype) + "</span>")
+    header.append('<span class="pf-col-count pf-col-count-placeholder">…</span>')
 
-    var header = $('<div style="padding: 8px 10px; font-size: 13px; font-weight: 600; color: var(--gray-700); background: var(--gray-50); border-bottom: 1px solid var(--gray-200);">' + col.doctype + '</div>').appendTo(panel)
-
-    var list = $('<div style="overflow-y: auto; max-height: 220px;"></div>').appendTo(panel)
-    var loading = $('<div style="padding: 20px; text-align: center; color: var(--gray-400); font-size: 13px;"><i class="fa fa-spinner fa-spin"></i> Loading...</div>').appendTo(list)
+    var list = $('<div class="pf-tiles"></div>').appendTo(panel)
+    list.append(
+      '<div class="pf-loading"><i class="fa fa-spinner fa-spin"></i> ' +
+        escapeHtml(__("Loading...")) +
+      "</div>"
+    )
 
     frappe.call({
       method: "pathfinder.api.pathfinder_api.get_doctype_fields",
       args: { doctype: col.doctype },
       callback: function (r) {
-        loading.remove()
+        list.empty()
         if (!r.message) {
-          list.append('<div style="padding: 10px; color: var(--red-500); font-size: 12px;">Error loading fields.</div>')
+          list.append('<div class="pf-error">' + escapeHtml(__("Error loading fields.")) + "</div>")
           return
         }
 
-        var fields = r.message
-        fields.forEach(function (field) {
+        panel.find(".pf-col-count-placeholder").text(
+          r.message.length + " " + __("fields")
+        )
+
+        r.message.forEach(function (field) {
           var isSelected = col.selectedField === field.fieldname
-          var isDrillable = DRILLABLE_TYPES.indexOf(field.fieldtype) >= 0
+          var tile = $(buildTileHtml(field, isSelected)).appendTo(list)
 
-          var row = $('<div style="padding: 5px 10px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; ' +
-            (isSelected ? 'background: var(--blue-100); color: var(--blue-700); font-weight: 600;' : 'color: var(--gray-700);') + '">' +
-            '<span style="opacity: 0.5; font-size: 11px; min-width: 50px;">' + field.fieldtype + '</span>' +
-            '<span>' + field.label + '</span>' +
-            (isDrillable ? '<i class="fa fa-chevron-right" style="margin-left: auto; opacity: 0.4; font-size: 10px;"></i>' : '') +
-            '</div>').appendTo(list)
-
-          row.on("click", function () {
+          tile.on("click", function () {
             col.selectedField = field.fieldname
             col.selectedLabel = field.label
             columns = columns.slice(0, colIdx + 1)
 
-            if (isDrillable && field.options) {
-              columns.push({ doctype: field.options, selectedField: null, selectedLabel: null })
+            if (isDrillable(field)) {
+              columns.push({
+                doctype: field.options,
+                selectedField: null,
+                selectedLabel: null,
+              })
               renderNavigator(dialog, columns, options)
               setTimeout(function () {
                 container[0].scrollLeft = container[0].scrollWidth
               }, 50)
             } else {
-              var pathParts = []
-              columns.forEach(function (c) { if (c.selectedField) pathParts.push(c.selectedField) })
-              var pathStr = pathParts.join(".")
+              var parts = []
+              columns.forEach(function (c) {
+                if (c.selectedField) parts.push(c.selectedField)
+              })
+              var path = parts.join(".")
               dialog.hide()
               if (options.onConfirm) {
-                options.onConfirm(pathStr)
+                options.onConfirm(path)
               } else {
-                showOutputDialog(pathStr, options)
+                showOutputDialog(path, options)
               }
             }
           })
@@ -149,40 +196,24 @@
     })
   }
 
-  /**
-   * Show the 3-option output dialog after a path is selected.
-   */
   function showOutputDialog(path, options) {
     var dialog = new frappe.ui.Dialog({
       title: __("Path Selected"),
       fields: [
-        {
-          fieldtype: "Section Break",
-          label: __("Path"),
-        },
-        {
-          fieldtype: "Code",
-          fieldname: "path_display",
-          default: path,
-          read_only: 1,
-        },
-        {
-          fieldtype: "Section Break",
-        },
+        { fieldtype: "Section Break", label: __("Path") },
+        { fieldtype: "Code", fieldname: "path_display", default: path, read_only: 1 },
+        { fieldtype: "Section Break" },
       ],
     })
 
     var footer = dialog.$wrapper.find(".modal-footer")
-
     var actions = [
       {
         label: __("Copy Jinja Tag"),
         primary: true,
         action: function () {
           var tag = "{{ doc." + path + " }}"
-          navigator.clipboard.writeText(tag).catch(function () {
-            fallbackCopy(tag)
-          })
+          navigator.clipboard.writeText(tag).catch(function () { fallbackCopy(tag) })
           frappe.show_alert({ message: __("Jinja tag copied: {0}", [tag]), indicator: "green" }, 3)
           if (options.onJinjaTagSelected) options.onJinjaTagSelected(tag)
         },
@@ -197,9 +228,7 @@
       {
         label: __("Copy Frappe Path"),
         action: function () {
-          navigator.clipboard.writeText(path).catch(function () {
-            fallbackCopy(path)
-          })
+          navigator.clipboard.writeText(path).catch(function () { fallbackCopy(path) })
           frappe.show_alert({ message: __("Frappe path copied: {0}", [path]), indicator: "green" }, 3)
           if (options.onPathSelected) options.onPathSelected(path)
         },
@@ -207,9 +236,13 @@
     ]
 
     actions.forEach(function (a) {
-      var btn = $('<button class="btn btn-sm ' +
-        (a.primary ? 'btn-primary' : 'btn-default') +
-        '" style="margin-right: 6px;">' + a.label + '</button>')
+      var btn = $(
+        '<button type="button" class="btn btn-sm ' +
+          (a.primary ? "btn-primary" : "btn-default") +
+          '" style="margin-right: 6px;">' +
+          escapeHtml(a.label) +
+        "</button>"
+      )
       btn.on("click", a.action)
       footer.prepend(btn)
     })
@@ -217,50 +250,22 @@
     dialog.show()
   }
 
-  /**
-   * Dialog to create a Pathfinder Virtual Field.
-   */
   function showCreateVFDialog(path, options) {
     var dialog = new frappe.ui.Dialog({
       title: __("Create Virtual Field"),
       fields: [
-        {
-          fieldtype: "Data",
-          fieldname: "field_label",
-          label: __("Field Label"),
-          reqd: 1,
-        },
+        { fieldtype: "Data", fieldname: "field_label", label: __("Field Label"), reqd: 1 },
         {
           fieldtype: "Link",
           fieldname: "source_doctype",
           label: __("Source DocType"),
           options: "DocType",
           reqd: 1,
-          get_query: function () {
-            return {
-              filters: { istable: 0 },
-            }
-          },
+          get_query: function () { return { filters: { istable: 0 } } },
         },
-        {
-          fieldtype: "Small Text",
-          fieldname: "field_path",
-          label: __("Field Path"),
-          default: path,
-          read_only: 1,
-        },
-        {
-          fieldtype: "Check",
-          fieldname: "show_in_form",
-          label: __("Show in Form"),
-          default: 1,
-        },
-        {
-          fieldtype: "Check",
-          fieldname: "show_in_list",
-          label: __("Show in List"),
-          default: 0,
-        },
+        { fieldtype: "Small Text", fieldname: "field_path", label: __("Field Path"), default: path, read_only: 1 },
+        { fieldtype: "Check", fieldname: "show_in_form", label: __("Show in Form"), default: 1 },
+        { fieldtype: "Check", fieldname: "show_in_list", label: __("Show in List"), default: 0 },
       ],
       primary_action_label: __("Create"),
       primary_action: function (values) {
@@ -295,7 +300,6 @@
     })
 
     dialog.show()
-    // Pre-fill source_doctype if we can detect it from the last column
     var rootRoute = frappe.get_route()
     if (rootRoute[0] === "Form" && rootRoute[1] && rootRoute[1] !== "Customize Form") {
       dialog.set_value("source_doctype", rootRoute[1])
@@ -311,7 +315,5 @@
     document.body.removeChild(ta)
   }
 
-  // Expose on window
   window.openPathfinderPopup = openPathfinderPopup
-
 })()
