@@ -279,18 +279,9 @@
     var reverseCol = columns.length ? columns[columns.length - 1] : null
     var inReverse = isReverseMode(reverseCol)
     var paths = inReverse ? getReverseColumns(dialog) : getSelectedPaths(dialog)
+    if (!paths.length) return
+
     var bar = $('<div class="pf-multi-bar"></div>').appendTo(container)
-
-    bar.append(
-      '<span class="pf-multi-hint">' +
-        escapeHtml(
-          inReverse
-            ? __("Shift+click fields to add columns. Click without Shift to finish.")
-            : __("Shift+click a field to add paths. Click without Shift to finish.")
-        ) +
-      "</span>"
-    )
-
     var chips = $('<div class="pf-multi-chips"></div>').appendTo(bar)
 
     paths.forEach(function (item) {
@@ -308,20 +299,18 @@
       })
     })
 
-    if (paths.length) {
-      var doneBtn = $(
-        '<button type="button" class="btn btn-xs btn-primary pf-multi-done">' +
-          escapeHtml(__("Done")) + " (" + paths.length + ")" +
-        "</button>"
-      ).appendTo(bar)
-      doneBtn.on("click", function () {
-        if (inReverse) {
-          finishWithReverseSelection(dialog, columns, reverseCol, paths.slice(), options)
-        } else {
-          finishWithPaths(dialog, paths.slice(), options)
-        }
-      })
-    }
+    var doneBtn = $(
+      '<button type="button" class="btn btn-xs btn-primary pf-multi-done">' +
+        escapeHtml(__("Done")) + " (" + paths.length + ")" +
+      "</button>"
+    ).appendTo(bar)
+    doneBtn.on("click", function () {
+      if (inReverse) {
+        finishWithReverseSelection(dialog, columns, reverseCol, paths.slice(), options)
+      } else {
+        finishWithPaths(dialog, paths.slice(), options)
+      }
+    })
   }
 
   function renderReverseLinksSection(list, panel, dialog, columns, col, colIdx, container, options) {
@@ -411,7 +400,7 @@
             : getSelectedPaths(dialog).indexOf(buildPathWithField(columns, colIdx, field.fieldname)) >= 0
           var tile = $(buildTileHtml(field, isActive, isPicked)).appendTo(list)
 
-          tile.on("click", function (e) {
+          tile.on("click", function () {
             col.selectedField = field.fieldname
             col.selectedLabel = field.label
             columns = columns.slice(0, colIdx + 1)
@@ -440,20 +429,8 @@
                 return
               }
 
-              if (e.shiftKey) {
-                if (addReverseColumn(dialog, colPath)) {
-                  frappe.show_alert({
-                    message: __("Added column ({0} selected)", [getReverseColumns(dialog).length]),
-                    indicator: "green",
-                  }, 2)
-                }
-                renderNavigator(dialog, columns, options)
-                return
-              }
-
-              var cols = getReverseColumns(dialog).slice()
-              if (cols.indexOf(colPath) < 0) cols.push(colPath)
-              finishWithReverseSelection(dialog, columns, col, cols, options)
+              addReverseColumn(dialog, colPath)
+              renderNavigator(dialog, columns, options)
               return
             }
 
@@ -479,21 +456,8 @@
             }
 
             var path = buildPathFromColumns(columns)
-
-            if (e.shiftKey) {
-              if (addSelectedPath(dialog, path)) {
-                frappe.show_alert({
-                  message: __("Added path ({0} selected)", [getSelectedPaths(dialog).length]),
-                  indicator: "green",
-                }, 2)
-              }
-              renderNavigator(dialog, columns, options)
-              return
-            }
-
-            var paths = getSelectedPaths(dialog).slice()
-            if (paths.indexOf(path) < 0) paths.push(path)
-            finishWithPaths(dialog, paths, options)
+            addSelectedPath(dialog, path)
+            renderNavigator(dialog, columns, options)
           })
         })
 
