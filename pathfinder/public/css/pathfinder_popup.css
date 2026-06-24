@@ -10,6 +10,7 @@
 
 .pf-tag-finder-dialog .modal-dialog {
 	transition: max-width 0.15s ease, width 0.15s ease;
+	max-width: none;
 }
 
 .pf-tag-finder-dialog .modal-body {
@@ -97,8 +98,9 @@
 /* ── Column ── */
 
 .pf-tag-finder-dialog .pf-column {
-	min-width: 230px;
-	max-width: 280px;
+	width: 260px;
+	min-width: 260px;
+	max-width: 260px;
 	display: flex;
 	flex-direction: column;
 	border-right: 1px solid var(--border-color);

@@ -13,20 +13,39 @@
   var LINK_TYPES = ["Link", "Dynamic Link"]
   var TABLE_TYPES = ["Table", "Table MultiSelect"]
   var REVERSE_TABLE_CHAR = "\u25A6"
-  var PF_COLUMN_WIDTH = 250
-  var PF_DIALOG_CHROME = 32
+  function getModalDialog(dialog) {
+    var $wrapper = dialog.$wrapper
+    if (!$wrapper || !$wrapper.length) return $()
+    var $modalDialog = $wrapper.find("> .modal-dialog")
+    if (!$modalDialog.length) $modalDialog = $wrapper.filter(".modal-dialog")
+    if (!$modalDialog.length) $modalDialog = $wrapper.closest(".modal-dialog")
+    return $modalDialog
+  }
 
-  function updateDialogWidth(dialog, columnCount) {
-    if (!dialog || !dialog.$wrapper) return
-    var minWidth = 320
-    var maxWidth = Math.floor(window.innerWidth * 0.95)
-    var width = Math.min(
-      maxWidth,
-      Math.max(minWidth, columnCount * PF_COLUMN_WIDTH + PF_DIALOG_CHROME)
-    )
-    dialog.$wrapper.find(".modal-dialog").css({
-      maxWidth: width + "px",
-      width: width + "px",
+  function updateDialogWidth(dialog, container) {
+    var $modalDialog = getModalDialog(dialog)
+    if (!$modalDialog.length || !container) return
+
+    requestAnimationFrame(function () {
+      var $container = $(container)
+      var $body = $container.find(".pf-body")
+      if (!$body.length) return
+
+      var columnsWidth = 0
+      $body.find(".pf-column").each(function () {
+        columnsWidth += $(this).outerWidth(true)
+      })
+
+      var innerWidth = Math.max(columnsWidth, $container[0].scrollWidth)
+      var width = Math.ceil(innerWidth + 2)
+      var maxWidth = Math.floor(window.innerWidth * 0.98)
+      var applied = Math.min(maxWidth, Math.max(320, width))
+
+      $modalDialog.css({
+        maxWidth: applied + "px",
+        width: applied + "px",
+      })
+      $body.css("overflow-x", applied < width ? "auto" : "hidden")
     })
   }
 
@@ -290,7 +309,7 @@
       renderColumn(scrollArea, dialog, columns, col, colIdx, options)
     })
 
-    updateDialogWidth(dialog, columns.length)
+    updateDialogWidth(dialog, container)
   }
 
   function renderMultiBar(container, dialog, columns, options) {
