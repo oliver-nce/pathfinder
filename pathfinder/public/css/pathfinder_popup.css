@@ -8,22 +8,8 @@
 	overflow: hidden;
 }
 
-.pf-tag-finder-dialog .modal-header {
-	background: var(--blue-600);
-	color: var(--gray-50);
-	border-bottom: 1px solid var(--blue-700);
-	padding: var(--padding-sm, 8px) var(--padding-md, 12px);
-}
-
-.pf-tag-finder-dialog .modal-header .modal-title {
-	font-weight: 600;
-	font-size: var(--text-md, 14px);
-}
-
-.pf-tag-finder-dialog .modal-header .btn-modal-close,
-.pf-tag-finder-dialog .modal-header .close {
-	color: var(--gray-50);
-	opacity: 0.85;
+.pf-tag-finder-dialog .modal-dialog {
+	transition: max-width 0.15s ease, width 0.15s ease;
 }
 
 .pf-tag-finder-dialog .modal-body {

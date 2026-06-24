@@ -13,6 +13,22 @@
   var LINK_TYPES = ["Link", "Dynamic Link"]
   var TABLE_TYPES = ["Table", "Table MultiSelect"]
   var REVERSE_TABLE_CHAR = "\u25A6"
+  var PF_COLUMN_WIDTH = 250
+  var PF_DIALOG_CHROME = 32
+
+  function updateDialogWidth(dialog, columnCount) {
+    if (!dialog || !dialog.$wrapper) return
+    var minWidth = 320
+    var maxWidth = Math.floor(window.innerWidth * 0.95)
+    var width = Math.min(
+      maxWidth,
+      Math.max(minWidth, columnCount * PF_COLUMN_WIDTH + PF_DIALOG_CHROME)
+    )
+    dialog.$wrapper.find(".modal-dialog").css({
+      maxWidth: width + "px",
+      width: width + "px",
+    })
+  }
 
   function escapeHtml(text) {
     if (frappe.utils && frappe.utils.escape_html) {
@@ -273,6 +289,8 @@
     columns.forEach(function (col, colIdx) {
       renderColumn(scrollArea, dialog, columns, col, colIdx, options)
     })
+
+    updateDialogWidth(dialog, columns.length)
   }
 
   function renderMultiBar(container, dialog, columns, options) {
